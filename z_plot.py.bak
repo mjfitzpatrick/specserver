@@ -1,0 +1,167 @@
+#!/usr/bin/env python
+
+import specClient as spec
+from specLines import _em_lines
+from specLines import _abs_lines
+
+from matplotlib import pyplot as plt      # visualization libs
+import numpy as np
+
+
+id = spec.query(30.0, 1.0, 0.01, context='sdss',out='')
+spec = spec.getSpec(id[0])
+
+
+
+def _plotSpec(spec,
+              rest_frame = True, z=0.0, xlim = None, ylim = None,
+              title=None, **kw):
+    """Plot a spectrum.
+    
+    Inputs:
+        * spec = 
+        * rest_frame - Whether or not to plot the spectra in the
+                       rest-frame.  (def: True)
+        * z - Redshift
+        * xlim - Setting the xrange of the plot
+        * ylim - Setting the yrange of the plot
+
+    Optiosnal kwargs:
+        * bands - A comma-delimited string of which bands to plot, a
+                  combination of 'flux,model,sky,ivar'
+        * mark_lines - Which lines to mark.  No lines marked if None or
+                       an empty string, otherwise one of 'em|abs|all|both'
+        * grid - Plot grid lines (def: True)
+        * dark - Dark-mode plot colors (def: True)
+        * em_lines - List of emission lines to plot.  If not given, all
+                     the lines in the default list will be plotted.
+        * abs_lines - Lines of absorption lines to plot.  If not given,
+                      all the lines in the default list will be plotted.
+        * spec_args - Plotting kwargs for the spectrum.
+        * model_args - Plotting kwargs for the model.
+        * ivar_args - Plotting kwargs for the ivar.
+        * sky_args - Plotting kwargs for the sky.
+    """
+    from astropy.visualization import astropy_mpl_style
+    plt.style.use(astropy_mpl_style)
+
+    def labelLines (lines, ax, color, yloc):
+        '''This is for selecting only those lines that are visible in the
+           x-range of the plot.
+        '''
+        for ii in range(len(lines)):
+            # If rest_frame = False, redshift lines to the observed frame.
+            lam = lines[ii]['lambda']
+            if (rest_frame == False):
+                lam = lam * (1+z)
+            # Plot only lines within the x-range of the plot.
+            if ((lam > xbounds[0]) & (lam < xbounds[1])):
+                ax.axvline(lam, color=color, lw=1.0, linestyle=':')
+                ax.annotate(lines[ii]['label'], xy=(lam, yloc),
+                            xycoords=ax.get_xaxis_transform(),
+                            fontsize=12, rotation=90, color=color)
+
+    # Get the wavelength, flux, model and ivar arrays for the source.
+    wavelength = 10.0**spec['loglam']
+    flux = spec['flux']
+    model = spec['model']
+    sky = spec['sky']
+    ivar = spec['ivar']
+    
+    # Process the optional kwargs.
+    dark = kw['dark'] if 'dark' in kw else True
+    grid = kw['grid'] if 'grid' in kw else True,
+    mark_lines = kw['mark_lines'] if 'mark_lines' in kw else 'all'
+    em_lines = kw['em_lines'] if 'em_lines' in kw else None
+    abs_lines = kw['abs_lines'] if 'abs_lines' in kw else None
+    bands = kw['bands'] if 'bands' in kw else 'flux,model'
+
+    if 'spec_args' in kw:
+        spec_args = kw['spec_args']
+    else:
+        spec_args = {'color': '#ababab', 'linewidth' : 1.0, 'alpha': 1.0}
+    if 'model_args' in kw:
+        model_args = kw['model_args']
+    else:
+        model_args = {'color': 'red', 'linewidth': 1.2}
+    if 'sky_args' in kw:
+        sky_args = kw['sky_args']
+    else:
+        sky_args = {'color': 'brown', 'linewidth': 1.0}
+    if 'ivar_args' in kw:
+        ivar_args = kw['ivar_args']
+    else:
+        ivar_args = {'color': 'blue', 'linewidth': 1.0}
+
+
+    # Setting up the plot
+    if dark:
+        fig = plt.figure(dpi=100, figsize = (12,5), facecolor='#2F4F4F')
+        plt.rcParams['axes.facecolor']='#121212'
+    else:
+        fig = plt.figure(dpi=100, figsize = (12,5))
+
+    ax = fig.add_subplot(111)
+    if 'flux' in bands:
+        ax.plot(wavelength, flux*(ivar > 0), label='Flux', **spec_args)
+    if 'model' in bands:
+        ax.plot(wavelength, model*(ivar > 0), label='Model', **model_args)
+    if 'sky' in bands:
+        ax.plot(wavelength, sky*(ivar > 0), label='Sky', **sky_args)
+    if 'ivar' in bands:
+        ax.plot(wavelength, ivar*(ivar > 0), label='Ivar', **ivar_args)
+
+    plt.xlim(xlim)
+    plt.ylim(ylim)
+    am_color = ('y' if dark else 'black')
+    if rest_frame:
+        plt.xlabel('Rest Wavelength ($\AA$)', color=am_color)
+    else:
+        plt.xlabel('Observed Wavelength ($\AA$)    z=%.3g' % z, color=am_color)
+    plt.ylabel('$F_{\lambda}$ ($10^{-17}~ergs~s^{-1}~cm^{-2}~\AA^{-1}$)',
+              color=am_color)
+
+    if dark: ax.tick_params(color='w', labelcolor='w')
+    if grid: plt.grid(color='gray', linestyle='dashdot', linewidth=0.5)
+
+    if title not in [None, '']:
+        ax.set_title(title + '\n', c=am_color)
+    
+    # Plotting Absorption/Emission lines - only works if either of the
+    # lines is set to True
+    if mark_lines not in [None, '']:
+        if mark_lines == 'all' or mark_lines == 'both':
+            opt = ['em','abs']
+        else:
+            opt = mark_lines.lower().split(',')
+
+        # Select any lines listed by the user.
+        e_lines = _em_lines
+        if (em_lines != None):
+            e_lines = list(filter(lambda x: x['name'] in em_lines, _em_lines))
+        a_lines = _abs_lines 
+        if (abs_lines != None):
+            a_lines = list(filter(lambda x: x['name'] in abs_lines, _abs_lines))
+        xbounds = ax.get_xbound()   # Getting the x-range of the plot 
+
+        lcol = ['#FFFF00', '#00FFFF'] if dark else ['#FF0000', '#0000FF']
+        if 'em' in opt: labelLines (e_lines, ax, lcol[0], 0.875)
+        if 'abs' in opt: labelLines (a_lines, ax, lcol[1], 0.05)
+    
+    leg = ax.legend()
+    if dark:
+        for text in leg.get_texts():
+            plt.setp(text, color = 'w')
+    plt.show()
+
+
+_plotSpec(spec, 
+     xlim=(4500,6123),
+     #ylim=(1.0,3.0),
+     bands='flux,model',
+     dark=True,
+     grid=True,
+     title='Test Title',
+     rest_frame=False, z=0.3141,
+     mark_lines='all')
+
