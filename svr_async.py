@@ -116,11 +116,15 @@ async def coadd(request):
     ''' 
     '''
     params = await request.post()
-    logging.info ('Params: ' + str(dict(params)))
+    logging.info ('gridPlot Params: ' + str(dict(params)))
     try:
-        spec_id = params['id']
-        bands = params['bands']
+        id_list = params['id_list']
+        bands = params['bands']                         # NYI
+        cutout = params['cutout']                       # NYI
         fmt = params['format']
+        align = (params['format'].lower() == 'true')
+        w0 = float(params['w0'])
+        w1 = float(params['w1'])
         context = params['context']
         profile = params['profile']
         debug = (params['debug'].lower() == 'true')
@@ -133,13 +137,50 @@ async def coadd(request):
 
     # Instantiate the dataset service based on the context parameter.
     svc = getSvc(context)()
-    fname = svc.dataPath(spec_id, fmt)
 
-    if bands == 'all':
-        en_time = time.time()
-        logging.info ('getSpec time: %g' % (en_time - st_time))
-        return web.Response(body=svc.readData(fname))
+    # Convert the request parameter to a list
+    if id_list[0] == '[':
+         print ('mapping list')
+         ids = map(int, id_list[1:-1].split(','))
     else:
+         print ('arraying list')
+         ids = np.array([np.uint64(id_list)])
+    print('ids: ' + str(id))
+
+    res = None
+    for id in ids:
+        print(str(id))
+        print(fname)
+        fname = svc.dataPath(id, 'npy')
+        data = np.load(str(fname))
+
+        wmin, wmax = data['loglam'][0], data['loglam'][-1]
+        disp = data['loglam'][1] - data['loglam'][0]
+        disp = 0.0001                                           # FIXME
+        lpad = int(np.around(max((wmin - w0) / disp, 0.0)))
+        rpad = int(np.around(max((w1 - wmax) / disp, 0.0)))
+
+        f = np.pad(data, (lpad,rpad))
+        f['loglam'] = np.linspace(w0,w1,len(f))         # patch wavelength array
+        if res is None:
+            res = f
+        else:
+            res = np.vstack((res,f))
+
+        if debug:
+            print(fname)
+            print ('wmin,wmax = (%g,%g)  disp=%g' % (wmin,wmax,disp))
+            print ('pad = (%d,%d)' % (lpad,rpad))
+            print ('len f = %d   len data = %d' % (len(f),len(data)))
+
+
+    tmp_file = NamedTemporaryFile(delete=False, dir='/tmp').name
+    np.save(tmp_file, res, allow_pickle=False)
+    with open(tmp_file+'.npy', 'rb') as fd:
+        _bytes = fd.read()
+    os.unlink(tmp_file)
+
+    if bands != 'all':
         data = np.load(str(fname))
         dbands = data[[c for c in list(data.dtype.names) if c in bands]]
         dbands = rfn.repack_fields(dbands)
@@ -150,9 +191,10 @@ async def coadd(request):
             _bytes = fd.read()
         os.unlink(tmp_file)
 
-        en_time = time.time()
-        logging.info ('getSpec time: %g' % (en_time - st_time))
-        return web.Response(body=_bytes)
+    en_time = time.time()
+    logging.info ('getSpec time: %g' % (en_time - st_time))
+
+    return web.Response(body=_bytes)
 
 
 # PREVIEW -- Get a preview plot of a spectrum.
@@ -175,12 +217,11 @@ async def preview(request):
     return web.Response(body=svc.readData(fname))
 
 
-
-# GRIDPLOT -- 
+# GRIDPLOT -- Return an image which is a grid plot of preview spectra.
 #
 @routes.post('/spec/plotGrid')
 async def gridplot(request):
-    """ Plate plot
+    """ Return an image which is a grid plot of preview spectra.
     """
 
     def pil_grid(images, max_horiz=np.iinfo(int).max):
@@ -237,12 +278,37 @@ async def gridplot(request):
     return web.Response(body=retval.getvalue())
 
 
+# LISTSPAN -- Return the span in wavelength of an aligned list of IDs. 
+#
+@routes.post('/spec/listSpan')
+async def listSpan(request):
+    """ Return the span in wavelength of an aligned list of IDs. 
+    """
+    # Process the service request arguments.
+    params = await request.post()
+    try:
+        id_list = params['id_list']
+        context = params['context']
+        profile = params['profile']
+        debug = (params['debug'].lower() == 'true')
+        verbose = (params['verbose'].lower() == 'true')
+    except Exception as e:
+        logging.error ('Param Error: ' + str(e))
+        return web.Response(text='Param Error: ' + str(e))
 
-# STACKEDIMAGE -- 
+    st_time = time.time()
+    w0,w1 = _listSpan(getSvc(context)(), id_list)
+    en_time = time.time()
+    logging.info ('listSpan time: %g' % (en_time - st_time))
+
+    return web.Response(text='{"w0" : %f, "w1" : %f }' % (w0,w1))
+
+
+# STACKEDIMAGE -- Return an image of stacked spectral flux arrays.
 #
 @routes.post('/spec/stackedImage')
 async def stackedImage(request):
-    """ Stacked image plot
+    """ Return an image of stacked spectral flux arrays.
     """
     # Process the service request arguments.
     params = await request.post()
@@ -269,15 +335,7 @@ async def stackedImage(request):
     st_time = time.time()
 
     svc = getSvc(context)()
-
-    dmin = 100000
-    dmax = 0
-    ids = map(int, id_list[1:-1].split(','))
-    for p in ids:
-        fname = svc.dataPath(p, 'npy')
-        data = np.load(str(fname))
-        dmin = min(dmin,data['loglam'][0])
-        dmax = max(dmax,data['loglam'][-1])
+    dmin, dmax = _listSpan(svc, id_list)
 
     img_data = None
     ids = map(int, id_list[1:-1].split(','))
@@ -296,9 +354,6 @@ async def stackedImage(request):
         else:
             for i in range(thick):
                 img_data = np.vstack((img_data,f))
-
-    print ('dmin = ' + str(dmin))
-    print ('dmax = ' + str(dmax))
 
     # Apply the scaling and requested colormap.
     zscale = ZScaleInterval()
@@ -325,7 +380,6 @@ async def stackedImage(request):
     en_time = time.time()
     logging.info ('stackedImage time: %g' % (en_time - st_time))
     return web.Response(body=retval.getvalue())
-
 
 
 
@@ -362,7 +416,6 @@ async def junk12k(request):
 @routes.post('/spec/test_post')
 async def test_post(request):
     print ('*** type(request) = ' + str(type(request)))
-    #print ('*** request(POST) = ' + str(request.POST))
     print ('*** request(post) = ' + str(request.post))
     print ('*** request(query) = ' + str(request.query))
     print ('*** request(headers) = ' + str(request.headers))
@@ -392,10 +445,39 @@ async def test_post(request):
     return web.Response(text='OK')
 
 
+@routes.get('/spec/test_json')
+async def test_json(request):
+
+    data = np.load('./zz.npy')
+    req = {'id' : 2210146812474530816,
+           'xdim' : 100,
+           'ydim' : 200,
+           'data' : BytesIO(data)
+          }
+
+    #dump = json.dumps(req)
+    with open(BytesIO(req), 'rb') as fd:
+        _bytes = fd.read()
+
+    return web.Response(body=_bytes)
+    
 
 # =======================================
 # Utility Methods
 # =======================================
+
+def _listSpan(svc, id_list):
+    ''' Find teh min max wavelength span an of ID list.
+    '''
+    w0 = 100000
+    w1 = -99999
+    ids = map(int, id_list[1:-1].split(','))
+    for p in ids:
+        fname = svc.dataPath(p, 'npy')
+        data = np.load(str(fname))
+        w0 = min(w0,data['loglam'][0])
+        w1 = max(w1,data['loglam'][-1])
+    return w0, w1
 
 def getSvc(context):
     try:

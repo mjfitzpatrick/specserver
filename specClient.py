@@ -62,6 +62,7 @@ Import via
 import os
 import sys
 import socket
+import json
 from time import gmtime
 from time import strftime
 from urllib.parse import urlencode          # Python 3
@@ -1031,7 +1032,7 @@ class specClient(object):
     # --------------------------------------------------------------------
     # QUERY -- Query for spectra by position.
     #
-    @multimethod('_spc',3,False)
+    @multimethod('_spc',3,True)
     def query(self, ra, dec, size, constraint=None, out=None,
               context=None, profile=None, **kw):
         return self._query(ra=ra, dec=dec, size=size,
@@ -1041,7 +1042,7 @@ class specClient(object):
                            out=out,
                            context=context, profile=profile, **kw)
     
-    @multimethod('_spc',2,False)
+    @multimethod('_spc',2,True)
     def query(self, pos, size, constraint=None, out=None,
               context=None, profile=None, **kw):
         return self._query(ra=None, dec=None, size=None,
@@ -1051,7 +1052,7 @@ class specClient(object):
                            out=out,
                            context=context, profile=profile, **kw)
     
-    @multimethod('_spc',1,False)
+    @multimethod('_spc',1,True)
     def query(self, region, constraint=None, out=None,
               context=None, profile=None, **kw):
         '''Query for a list of spectrum IDs that can then be retrieved from
@@ -1200,7 +1201,7 @@ class specClient(object):
         sql = 'SELECT %s FROM %s WHERE %s' % (fields, catalog, pquery)
 
         # Add any user-defined constraint.
-        if constraint is not None:
+        if constraint not in [None, '']:
             sql += ' AND %s' % constraint
 
         # Query for the IDs.
@@ -1211,7 +1212,9 @@ class specClient(object):
             print ('res = ' + str(res))
 
         id_list = np.array(res, dtype=np.uint64)
-        if out is None:
+        if out in [None, '']:
+            print ('out=None  type list = ' + str(type(id_list)))
+            #print ('out=None  type list list = ' + str(type(list(id_list))))
             return id_list
         else:
             # Note:  memory expensive for large lists .....
@@ -1296,6 +1299,8 @@ class specClient(object):
         if profile in [None, '']: profile = self.svc_profile
 
         # Process optional parameters.
+        align = kw['align'] if 'align' in kw else False
+        cutout = kw['cutout'] if 'cutout' in kw else self.auth_token
         token = kw['token'] if 'token' in kw else self.auth_token
         verbose = kw['verbose'] if 'verbose' in kw else False
         debug = kw['debug'] if 'debug' in kw else False
@@ -1307,38 +1312,50 @@ class specClient(object):
                    'X-DL-OriginHost': self.hostname,
                    'X-DL-AuthToken': def_token(None)}  # application/x-sql
 
-        # Build the query URL string.
-        url = '%s/getSpec' % self.svc_url
+        print ('in ty sid_list: ' + str(type(id_list)))
+        if not (isinstance(id_list, list) or isinstance(id_list, np.ndarray)):
+            id_list = np.array([id_list])
+        print ('out ty sid_list: ' + str(type(id_list)))
 
         # Initialize the payload.
-        data = {'id' : id_list,
+        url = '%s/getSpec' % self.svc_url
+        data = {'id_list' : list(id_list),
                 'bands' : 'all',
                 'format' : fmt,
+                'align' : align,
+                'cutout' : cutout,
+                'w0' : 0.0,
+                'w1' : 0.0,
                 'context' : context,
                 'profile' : profile,
                 'debug' : debug,
                 'verbose' : verbose
               }
 
-        print ('id_list: ' + str(id_list))
-        print ('id_list type: ' + str(type(id_list)))
+        # Get the limits of the collection
+        url = '%s/listSpan' % self.svc_url
+        resp = requests.post(url, data=data, headers=headers)
+        v = json.loads(resp.text)
+        data['w0'], data['w1'] = v['w0'], v['w1']
 
-        if isinstance(id_list, list):
-            print ('id_list is a list')
-            print ('id_list len: ' + str(len(id_list)))
-            data['id'] = id_list[0]             # FIXME
-        elif isinstance(id_list, tuple):
-            print ('id_list is a tuple')
-            data['id'] = id_list             # FIXME
-        elif isinstance(id_list, int):
-            print ('id_list is an int')
-            data['id'] = id_list
+        if align:
+            # If we're aligning columns, the server will pad the values
+            # and return a common array size.
+            resp = requests.post (url, data=data, headers=headers)
+            _data = resp.content
+        else:
+            # If not aligning columns, request each spectrum individually
+            # so we can return a list object.
+            _data = []
+            for id in id_list:
+                print (id)
+                data['id_list'] = list(np.array([id]))
+                resp = requests.post (url, data=data, headers=headers)
+                _data.append(resp.content)
+            _data = np.array(_data)
 
-        print ('data: ' + str(data))
+        return _data
 
-        resp = requests.post (url, data=data, headers=headers)
-
-        _data = resp.content
         if fmt.lower() == 'FITS':
             return _data
         else:
