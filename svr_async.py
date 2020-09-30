@@ -116,13 +116,12 @@ async def coadd(request):
     ''' 
     '''
     params = await request.post()
-    logging.info ('gridPlot Params: ' + str(dict(params)))
     try:
         id_list = params['id_list']
         bands = params['bands']                         # NYI
         cutout = params['cutout']                       # NYI
         fmt = params['format']
-        align = (params['format'].lower() == 'true')
+        align = (params['align'].lower() == 'true')
         w0 = float(params['w0'])
         w1 = float(params['w1'])
         context = params['context']
@@ -140,39 +139,42 @@ async def coadd(request):
 
     # Convert the request parameter to a list
     if id_list[0] == '[':
-         print ('mapping list')
          ids = map(int, id_list[1:-1].split(','))
     else:
-         print ('arraying list')
          ids = np.array([np.uint64(id_list)])
-    print('ids: ' + str(id))
 
     res = None
+    align = (w0 != w1)
     for id in ids:
-        print(str(id))
-        print(fname)
         fname = svc.dataPath(id, 'npy')
         data = np.load(str(fname))
 
-        wmin, wmax = data['loglam'][0], data['loglam'][-1]
-        disp = data['loglam'][1] - data['loglam'][0]
-        disp = 0.0001                                           # FIXME
-        lpad = int(np.around(max((wmin - w0) / disp, 0.0)))
-        rpad = int(np.around(max((w1 - wmax) / disp, 0.0)))
+        if not align:
+            f = data
+        else:
+            wmin, wmax = data['loglam'][0], data['loglam'][-1]
+            disp = data['loglam'][1] - data['loglam'][0]
+            disp = 0.0001                                           # FIXME
+            lpad = int(np.around(max((wmin - w0) / disp, 0.0)))
+            rpad = int(np.around(max((w1 - wmax) / disp, 0.0)))
 
-        f = np.pad(data, (lpad,rpad))
-        f['loglam'] = np.linspace(w0,w1,len(f))         # patch wavelength array
+            f = np.pad(data, (lpad,rpad))
+            f['loglam'] = np.linspace(w0,w1,len(f))   # patch wavelength array
+
+            if debug:
+                print(fname)
+                print ('wmin,wmax = (%g,%g)  disp=%g' % (wmin,wmax,disp))
+                print ('pad = (%d,%d)' % (lpad,rpad))
+                print ('len f = %d   len data = %d' % (len(f),len(data)))
+
         if res is None:
             res = f
         else:
             res = np.vstack((res,f))
 
-        if debug:
-            print(fname)
-            print ('wmin,wmax = (%g,%g)  disp=%g' % (wmin,wmax,disp))
-            print ('pad = (%d,%d)' % (lpad,rpad))
-            print ('len f = %d   len data = %d' % (len(f),len(data)))
-
+    if debug:
+        print('res type: ' + str(type(res)))
+        print('res shape: ' + str(res.shape))
 
     tmp_file = NamedTemporaryFile(delete=False, dir='/tmp').name
     np.save(tmp_file, res, allow_pickle=False)
@@ -372,7 +374,7 @@ async def stackedImage(request):
         image = image.resize(new_size)
     elif width != 0 or height != 0:
         image = image.resize((height, width))
-    print('scaled image size: ' + str(image.size))
+    if debug: print('scaled image size: ' + str(image.size))
 
     retval = BytesIO()
     image.save(retval, format='PNG')
@@ -455,7 +457,6 @@ async def test_json(request):
            'data' : BytesIO(data)
           }
 
-    #dump = json.dumps(req)
     with open(BytesIO(req), 'rb') as fd:
         _bytes = fd.read()
 

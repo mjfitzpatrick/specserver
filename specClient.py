@@ -1299,7 +1299,6 @@ class specClient(object):
         if profile in [None, '']: profile = self.svc_profile
 
         # Process optional parameters.
-        align = kw['align'] if 'align' in kw else False
         cutout = kw['cutout'] if 'cutout' in kw else self.auth_token
         token = kw['token'] if 'token' in kw else self.auth_token
         verbose = kw['verbose'] if 'verbose' in kw else False
@@ -1312,13 +1311,10 @@ class specClient(object):
                    'X-DL-OriginHost': self.hostname,
                    'X-DL-AuthToken': def_token(None)}  # application/x-sql
 
-        print ('in ty sid_list: ' + str(type(id_list)))
         if not (isinstance(id_list, list) or isinstance(id_list, np.ndarray)):
             id_list = np.array([id_list])
-        print ('out ty sid_list: ' + str(type(id_list)))
 
         # Initialize the payload.
-        url = '%s/getSpec' % self.svc_url
         data = {'id_list' : list(id_list),
                 'bands' : 'all',
                 'format' : fmt,
@@ -1338,20 +1334,21 @@ class specClient(object):
         v = json.loads(resp.text)
         data['w0'], data['w1'] = v['w0'], v['w1']
 
+        url = '%s/getSpec' % self.svc_url
         if align:
             # If we're aligning columns, the server will pad the values
             # and return a common array size.
             resp = requests.post (url, data=data, headers=headers)
-            _data = resp.content
+            _data = np.load(BytesIO(resp.content), allow_pickle=False)
         else:
             # If not aligning columns, request each spectrum individually
             # so we can return a list object.
             _data = []
             for id in id_list:
-                print (id)
                 data['id_list'] = list(np.array([id]))
                 resp = requests.post (url, data=data, headers=headers)
-                _data.append(resp.content)
+                np_data = np.load(BytesIO(resp.content), allow_pickle=False)
+                _data.append(np_data)
             _data = np.array(_data)
 
         return _data
