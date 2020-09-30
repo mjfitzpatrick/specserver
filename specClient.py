@@ -114,7 +114,6 @@ if THIS_HOST[:5] == 'dldev':
     DEF_SERVICE_ROOT = "http://dldev.datalab.noao.edu"
 elif THIS_HOST[:6] == 'dltest':
     DEF_SERVICE_ROOT = "http://dltest.datalab.noao.edu"
-
 elif THIS_HOST[:5] == 'munch':                          # DELETE ME
     DEF_SERVICE_ROOT = "http://localhost:6999"          # DELETE ME
 
