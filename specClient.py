@@ -1351,25 +1351,40 @@ class specClient(object):
                 _data.append(np_data)
             _data = np.array(_data)
 
-        return _data
+        print ('ty data: ' + str(type(_data)))
+        print ('len data: ' + str(len(_data)))
+        print ('shape data: ' + str(_data.shape))
+        #return _data
 
         if fmt.lower() == 'FITS':
+            # Note: assumes a single file....FIXME
             return _data
         else:
-            np_data = np.load(BytesIO(_data), allow_pickle=False)
+            #np_data = np.load(BytesIO(_data), allow_pickle=False)
             if fmt.lower() == 'numpy':
-                return np_data
+                print('NUMPY ARRAY')
+                return list(_data)
             elif fmt == 'pandas':
-                return pd.DataFrame (data=np_data, columns=np_data.dtype.names)
+                print('PANDAS ARRAY')
+                np_data = []
+                for d in _data:
+                    np_data.append(pd.DataFrame(data=d, columns=d.dtype.names))
+                return np_data
             elif fmt == 'Spectrum1D':
                 # FIXME: column names are SDSS-specific
-                lamb = 10**np_data['loglam'] * u.AA 
-                flux = np_data['flux'] * 10**-17 * u.Unit('erg cm-2 s-1 AA-1')
-                spec1d = Spectrum1D(spectral_axis=lamb, flux=flux)
-                spec1d.meta['sky'] = np_data['sky']
-                spec1d.meta['model'] = np_data['model']
-                spec1d.meta['ivar'] = np_data['ivar']
-                return spec1d
+                print('SPECTRUM1D ARRAY')
+                np_data = []
+                for d in _data:
+                    lamb = 10**d['loglam'] * u.AA 
+                    flux = d['flux'] * 10**-17 * u.Unit('erg cm-2 s-1 AA-1')
+                    spec1d = Spectrum1D(spectral_axis=lamb, flux=flux)
+                    spec1d.meta['sky'] = d['sky']
+                    spec1d.meta['model'] = d['model']
+                    spec1d.meta['ivar'] = d['ivar']
+                    np_data.append(spec1d)
+                return np_data
+            else:
+                raise Exception('Unknown return format')
 
 
     # --------------------------------------------------------------------
