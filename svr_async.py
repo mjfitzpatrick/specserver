@@ -112,7 +112,7 @@ async def debug(request):
 # GETSPEC -- Get a single spectrum 
 #
 @routes.post('/spec/getSpec')
-async def coadd(request):
+async def getSpec(request):
     ''' 
     '''
     params = await request.post()
@@ -154,11 +154,14 @@ async def coadd(request):
         else:
             wmin, wmax = data['loglam'][0], data['loglam'][-1]
             disp = data['loglam'][1] - data['loglam'][0]
-            disp = 0.0001                                           # FIXME
             lpad = int(np.around(max((wmin - w0) / disp, 0.0)))
             rpad = int(np.around(max((w1 - wmax) / disp, 0.0)))
 
-            f = np.pad(data, (lpad,rpad))
+            if lpad == 0 and rpad == 0:
+                f = data
+            else:
+                f = np.pad(data, (lpad,rpad), mode='constant',
+                           constant_values=0)
             f['loglam'] = np.linspace(w0,w1,len(f))   # patch wavelength array
 
             if debug:
@@ -350,7 +353,11 @@ async def stackedImage(request):
         lpad = int(max((w1 - dmin) / disp, 0))
         rpad = int(max((dmax - w2) / disp, 0))
 
-        f = np.pad(data['flux'], (lpad,rpad))
+        if lpad == 0 and rpad == 0:
+            f = data
+        else:
+            f = np.pad(data['flux'], (lpad,rpad), mode='constant',
+                       constant_values=0)
         if img_data is None:
             img_data = np.array(f)
         else:
@@ -495,7 +502,7 @@ def getSvc(context):
 ########################################################################
 
 # Enable basic logging.
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 # Define the application.
 app = web.Application()
