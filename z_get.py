@@ -85,9 +85,6 @@ print ('ty element: ' + str(type(data[0])))
 if PLOT:
     for i in range(3):                      # Plot the first 3 spectra
         spec.plot(data[i])
-if PLOT:
-    for i in range(3):                      # Plot the first 3 spectra
-        spec.plot(data[i])
 print('--------------------------------------')
 
 
