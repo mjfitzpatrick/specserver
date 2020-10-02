@@ -65,10 +65,12 @@ import socket
 import json
 from time import gmtime
 from time import strftime
-from urllib.parse import urlencode          # Python 3
+#from urllib.parse import urlencode          # Python 3
 import numpy as np
 import pandas as pd
 from io import BytesIO
+
+from PIL import Image
 
 # Turn off some annoying astropy warnings
 
@@ -81,10 +83,7 @@ logging.getLogger("specutils").setLevel(logging.CRITICAL)
 from specutils import Spectrum1D
 
 from astropy import units as u
-
 from matplotlib import pyplot as plt      # visualization libs
-#from specLines import _em_lines
-#from specLines import _abs_lines
 
 try:
     import pycurl_requests as requests
@@ -1310,7 +1309,30 @@ class specClient(object):
                    'X-DL-OriginHost': self.hostname,
                    'X-DL-AuthToken': def_token(None)}  # application/x-sql
 
-        if not (isinstance(id_list, list) or isinstance(id_list, np.ndarray)):
+        if isinstance(id_list,str):
+            if os.path.exists(id_list):
+                # Read list from a local file.
+                with open(id_list, 'r') as fd:
+                    _list = fd.read()
+                id_list = _list.split('\n')[:-1]
+            elif id_list.startswith('vos://'):
+                # Read list from virtual storage.
+                id_list = storeClient.get(id_list).split('\n')[:-1]
+            else:
+                id_list = np.array([id_list])
+
+            el = id_list[0]
+            if isinstance(el,str):
+                cnv_list = []
+                if el[0] == '(':      # Assume a tuple
+                    for el in id_list:
+                        cnv_list.append(el[1:-1])
+                else:
+                    for el in id_list:
+                        cnv_list.append(int(el))
+                id_list = np.array(cnv_list)
+
+        elif not (isinstance(id_list, list) or isinstance(id_list, np.ndarray)):
             id_list = np.array([id_list])
 
         # Initialize the payload.
@@ -1449,14 +1471,11 @@ class specClient(object):
         if context in [None, '']: context = self.svc_context
         if profile in [None, '']: profile = self.svc_profile
 
-        print ('ty spec = ' + str(type(spec)))
-
         # See whether we've been passed a spectrum ID or a data.
         if isinstance(spec, int) or \
            isinstance(spec, np.uint64) or \
            isinstance(spec, tuple) or \
            isinstance(spec, str):
-               print ('DOWNLOADING ID')
                dlist = spc_client.getSpec(spec, context=context,profile=profile)
                data = dlist[0]
                wavelength = 10.0**data['loglam']
@@ -1575,9 +1594,9 @@ class specClient(object):
         url = url + '&context=%s&profile=%s' % (context, profile)
         try:
             if USE_CURL:
-                return self.curl_get(url)
+                return Image.open(BytesIO(self.curl_get(url)))
             else:
-                return requests.get(url, timeout=2).content
+                return Image.open(BytesIO(requests.get(url, timeout=2).content))
         except Exception as e:
             raise Exception("Error getting plot data: " + str(e))
 
@@ -1670,7 +1689,7 @@ class specClient(object):
             ids = id_list
 
         # Initialize the payload.
-        data = {'id_list' : ids,
+        data = {'id_list' : list(ids),
                 'ncols' : ny,
                 'context' : context,
                 'profile' : profile,
@@ -1679,7 +1698,7 @@ class specClient(object):
               }
 
         resp = requests.post (url, data=data, headers=headers)
-        return BytesIO(resp.content)
+        return Image.open(BytesIO(resp.content))
 
 
     # --------------------------------------------------------------------
@@ -1766,7 +1785,7 @@ class specClient(object):
               }
 
         resp = requests.post (url, data=data, headers=headers)
-        return BytesIO(resp.content)
+        return Image.open(BytesIO(resp.content))
 
 
     ###################################################
@@ -1889,11 +1908,10 @@ class specClient(object):
         # Plotting Absorption/Emission lines - only works if either of the
         # lines is set to True
         if mark_lines not in [None, '']:
-            if mark_lines == 'all' or mark_lines == 'both':
-                opt = ['em','abs']
-                opt = ['em','abs','emission','absorption','e','ab']
+            if mark_lines.lower() in ['all','both']:
+                opt = 'ea'
             else:
-                opt = mark_lines.lower().split(',')
+                opt = mark_lines.lower()
     
             # Select any lines listed by the user.
             e_lines = _em_lines
@@ -1907,8 +1925,8 @@ class specClient(object):
             xbounds = ax.get_xbound()   # Getting the x-range of the plot 
     
             lcol = ['#FFFF00', '#00FFFF'] if dark else ['#FF0000', '#0000FF']
-            if opt[0] == 'e': labelLines (e_lines, ax, lcol[0], 0.875)
-            if opt[0] == 'a': labelLines (a_lines, ax, lcol[1], 0.05)
+            if 'e' in opt: labelLines (e_lines, ax, lcol[0], 0.875)
+            if 'a' in opt: labelLines (a_lines, ax, lcol[1], 0.05)
         
         leg = ax.legend()
         if dark:
@@ -2124,7 +2142,7 @@ _abs_lines = [
 
 
 def airtovac(l):
-    """Convert air wavelengths (greater than 2000 Å) to vacuum wavelengths. 
+    """Convert air wavelengths (greater than 2000A) to vacuum wavelengths. 
     """
     if l < 2000.0:
         return l;

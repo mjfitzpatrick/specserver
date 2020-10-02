@@ -145,18 +145,20 @@ async def getSpec(request):
 
     res = None
     align = (w0 != w1)
+    nspec = 0
     for id in ids:
+        nspec = nspec + 1
         fname = svc.dataPath(id, 'npy')
         data = np.load(str(fname))
 
         if not align:
             f = data
         else:
+            debug = True
             wmin, wmax = data['loglam'][0], data['loglam'][-1]
-            disp = data['loglam'][1] - data['loglam'][0]
+            disp = float((wmax - wmin) / float(len(data['loglam'])))
             lpad = int(np.around(max((wmin - w0) / disp, 0.0)))
             rpad = int(np.around(max((w1 - wmax) / disp, 0.0)))
-
             if lpad == 0 and rpad == 0:
                 f = data
             else:
@@ -167,7 +169,7 @@ async def getSpec(request):
             if debug:
                 print(fname)
                 print ('wmin,wmax = (%g,%g)  disp=%g' % (wmin,wmax,disp))
-                print ('pad = (%d,%d)' % (lpad,rpad))
+                print ('w0,w1 = (%g,%g)  pad = (%d,%d)' % (w0,w1,lpad,rpad))
                 print ('len f = %d   len data = %d' % (len(f),len(data)))
 
         if res is None:
@@ -197,7 +199,7 @@ async def getSpec(request):
         os.unlink(tmp_file)
 
     en_time = time.time()
-    logging.info ('getSpec time: %g' % (en_time - st_time))
+    logging.info ('getSpec time: %g  NSpec: %d' % (en_time-st_time,nspec))
 
     return web.Response(body=_bytes)
 
@@ -244,6 +246,7 @@ async def gridplot(request):
             h_sizes[h] = max(h_sizes[h], im.size[0])
             v_sizes[v] = max(v_sizes[v], im.size[1])
         h_sizes, v_sizes = np.cumsum([0] + h_sizes), np.cumsum([0] + v_sizes)
+        print ('sizes = %d %d' % (h_sizes[-1],v_sizes[-1]))
         im_grid = Image.new('RGB', (h_sizes[-1],v_sizes[-1]),color='white')
         for i, im in enumerate(images):
             im_grid.paste(im, (h_sizes[i % n_horiz], v_sizes[i // n_horiz]))
@@ -253,8 +256,6 @@ async def gridplot(request):
 
     # Process the service request arguments.
     params = await request.post()
-    if debug:
-        logging.info ('gridPlot Params: ' + str(dict(params)))
     try:
         id_list = params['id_list']
         ncols = int(params['ncols'])
@@ -265,6 +266,9 @@ async def gridplot(request):
     except Exception as e:
         logging.error ('Param Error: ' + str(e))
         return web.Response(text='Param Error: ' + str(e))
+
+    if debug:
+        logging.info ('gridPlot Params: ' + str(dict(params)))
 
     ids = map(int, id_list[1:-1].split(','))
     svc = getSvc(context)()
@@ -302,9 +306,9 @@ async def listSpan(request):
         return web.Response(text='Param Error: ' + str(e))
 
     st_time = time.time()
-    w0,w1 = _listSpan(getSvc(context)(), id_list)
+    w0,w1,nspec = _listSpan(getSvc(context)(), id_list)
     en_time = time.time()
-    logging.info ('listSpan time: %g' % (en_time - st_time))
+    logging.info ('listSpan time: %g  NSpec: %d' % (en_time-st_time,nspec))
 
     return web.Response(text='{"w0" : %f, "w1" : %f }' % (w0,w1))
 
@@ -340,7 +344,7 @@ async def stackedImage(request):
     st_time = time.time()
 
     svc = getSvc(context)()
-    dmin, dmax = _listSpan(svc, id_list)
+    w0, w1, nspec = _listSpan(svc, id_list)
 
     img_data = None
     ids = map(int, id_list[1:-1].split(','))
@@ -348,10 +352,10 @@ async def stackedImage(request):
         fname = svc.dataPath(q, 'npy')
         data = np.load(str(fname))
 
-        w1, w2 = data['loglam'][0], data['loglam'][-1]
-        disp = data['loglam'][1] - data['loglam'][0]
-        lpad = int(max((w1 - dmin) / disp, 0))
-        rpad = int(max((dmax - w2) / disp, 0))
+        wmin, wmax = data['loglam'][0], data['loglam'][-1]
+        disp = float((wmax - wmin) / float(len(data['loglam'])))
+        lpad = int(np.around(max((wmin - w0) / disp, 0.0)))
+        rpad = int(np.around(max((w1 - wmax) / disp, 0.0)))
 
         if lpad == 0 and rpad == 0:
             f = data
@@ -387,7 +391,7 @@ async def stackedImage(request):
     image.save(retval, format='PNG')
 
     en_time = time.time()
-    logging.info ('stackedImage time: %g' % (en_time - st_time))
+    logging.info ('stackedImage time: %g  NSpec: %d' % (en_time-st_time,nspec))
     return web.Response(body=retval.getvalue())
 
 
@@ -475,17 +479,19 @@ async def test_json(request):
 # =======================================
 
 def _listSpan(svc, id_list):
-    ''' Find teh min max wavelength span an of ID list.
+    ''' Find the min max wavelength span an of ID list.
     '''
     w0 = 100000
     w1 = -99999
     ids = map(int, id_list[1:-1].split(','))
+    nids = 0
     for p in ids:
+        nids = nids + 1
         fname = svc.dataPath(p, 'npy')
         data = np.load(str(fname))
         w0 = min(w0,data['loglam'][0])
         w1 = max(w1,data['loglam'][-1])
-    return w0, w1
+    return w0, w1, nids
 
 def getSvc(context):
     try:
