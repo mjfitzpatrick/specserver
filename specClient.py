@@ -333,8 +333,8 @@ def list_contexts(token=None, context=None, fmt='text'):
 # --------------------------------------------------------------------
 # CATALOGS -- List available catalogs for a given dataset context
 #
-def catalogs(context='default', profile='default'):
-    return spc_client.catalogs(context=context, profile=profile)
+def catalogs(context='default', profile='default', fmt='text'):
+    return spc_client.catalogs(context=context, profile=profile, fmt=fmt)
 
 
 
@@ -1040,7 +1040,7 @@ class specClient(object):
         return spcToString(contexts)
 
 
-    def catalogs(self, context='default', profile='default'):
+    def catalogs(self, context='default', profile='default', fmt='text'):
         '''Usage:  specClient.client.catalogs (...)
         '''
         headers = self.getHeaders (None)
@@ -1048,7 +1048,7 @@ class specClient(object):
         svc_url = '%s/catalogs?' % self.svc_url
         svc_url += "context=%s&" % context
         svc_url += "profile=%s&" % profile
-        svc_url += "format=%s&" % 'text'
+        svc_url += "format=%s" % fmt
 
         r = requests.get (svc_url, headers=headers)
         catalogs = spcToString(r.text)
