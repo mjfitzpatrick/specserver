@@ -51,7 +51,7 @@ __version__ = 'v1.0.0'
                              context=context, profile=profile, **kw)
     UTILITT METHODS:
                  to_pandas  (npy_data)
-             to_spectrum1D  (npy_data)
+             to_Spectrum1D  (npy_data)
 
 Import via
 
@@ -342,10 +342,10 @@ def catalogs(context='default', profile='default', fmt='text'):
 # --------------------------------------------------------------------
 # TO_SPECTRUM1D -- Utility method to convert a Numpy array to Spectrum1D
 #
-def to_spectrum1d(npy_data):
+def to_Spectrum1D(npy_data):
     '''Utility method to convert a Numpy array to Spectrum1D
     '''
-    return spc_client.to_spectrum1d(npy_data)
+    return spc_client.to_Spectrum1D(npy_data)
 
 
 # --------------------------------------------------------------------
@@ -1082,7 +1082,7 @@ class specClient(object):
     # --------------------------------------------------------------------
     # TO_SPECTRUM1D -- Utility method to convert a Numpy array to Spectrum1D
     #
-    def to_spectrum1d(self, npy_data):
+    def to_Spectrum1D(self, npy_data):
         ''' Convert a Numpy spectrum array to a Spectrum1D object.
         '''
         lamb = 10**npy_data['loglam'] * u.AA 
