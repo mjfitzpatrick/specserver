@@ -36,12 +36,10 @@ __version__ = 'v1.0.0'
             id_list = query (<region> | <coord, size> | <ra, dec, size>,
                              constraint=<sql_where_clause>,
                              context=None, profile=None, **kw)
-
     ACCESS INTERFACE:
             list = getSpec  (id_list, fmt='numpy',
                              out=None, align=False, cutout=None,
                              context=None, profile=None, **kw)
-
     PLOT  INTERFACE:
                       plot  (spec, context=context, profile=profile, **kw)
          status = prospect  (spec, context=context, profile=profile, **kw)
@@ -51,6 +49,9 @@ __version__ = 'v1.0.0'
       image = stackedImage  (id_list, fmt='png|numpy',
                              align=False, yflip=False,
                              context=context, profile=profile, **kw)
+    UTILITT METHODS:
+                 to_pandas  (npy_data)
+             to_spectrum1D  (npy_data)
 
 Import via
 
@@ -329,12 +330,32 @@ def list_contexts(token=None, context=None, fmt='text'):
                                      context=context, fmt=fmt)
 
 
-
 # --------------------------------------------------------------------
 # CATALOGS -- List available catalogs for a given dataset context
 #
 def catalogs(context='default', profile='default', fmt='text'):
+    '''List available catalogs for a given dataset context
+    '''
     return spc_client.catalogs(context=context, profile=profile, fmt=fmt)
+
+
+# --------------------------------------------------------------------
+# TO_SPECTRUM1D -- Utility method to convert a Numpy array to Spectrum1D
+#
+def to_spectrum1d(npy_data):
+    '''Utility method to convert a Numpy array to Spectrum1D
+    '''
+    return spc_client.to_spectrum1d(npy_data)
+
+
+# --------------------------------------------------------------------
+# TO_PANDAS -- Utility method to convert a Numpy array to a Pandas DataFrame
+#
+def to_pandas(npy_data):
+    '''Utility method to convert a Numpy array to a Pandas DataFrame
+    '''
+    return spc_client.to_pandas(npy_data)
+
 
 
 
@@ -1056,6 +1077,27 @@ class specClient(object):
             catalogs = json.loads(catalogs)
 
         return spcToString(catalogs)
+
+
+    # --------------------------------------------------------------------
+    # TO_SPECTRUM1D -- Utility method to convert a Numpy array to Spectrum1D
+    #
+    def to_spectrum1d(self, npy_data):
+        ''' Convert a Numpy spectrum array to a Spectrum1D object.
+        '''
+        lamb = 10**npy_data['loglam'] * u.AA 
+        flux = npy_data['flux'] * 10**-17 * u.Unit('erg cm-2 s-1 AA-1')
+
+        return Spectrum1D(spectral_axis=lamb, flux=flux)
+
+
+    # --------------------------------------------------------------------
+    # TO_PANDAS -- Utility method to convert a Numpy array to a Pandas DataFrame
+    #
+    def to_pandas(self, npy_data):
+        '''Utility method to convert a Numpy array to a Pandas DataFrame
+        '''
+        return pd.DataFrame(data=npy_data, columns=npy_data.dtype.names)
 
 
 
