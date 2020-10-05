@@ -1278,7 +1278,10 @@ class specClient(object):
 
         # Add any user-defined constraint.
         if constraint not in [None, '']:
-            sql += ' AND %s' % constraint
+            if constraint[:5].lower() in ['limit', 'order']:
+                sql += ' %s' % constraint
+            else:
+                sql += ' AND %s' % constraint
 
         # Query for the IDs.
         if debug:
