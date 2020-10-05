@@ -219,13 +219,16 @@ def catalogs(request):
         catalogs = config['contexts'][context]['catalogs'].keys()
 
         if fmt == 'csv':
-            return ",".join(catalogs)
+            txt = 'catalog_name,description\n'
+            for p in sorted(catalogs):
+                cat = config['contexts'][context]['catalogs'][p]
+                txt = txt + ("%s,%s\n" % (p, cat))
         elif fmt == 'text':
-            txt = ''
+            txt = "Catalogs for '%s' context:\n\n" % context
             for p in sorted(catalogs):
                 cat = config['contexts'][context]['catalogs'][p]
                 txt = txt + ("%26s   %s\n" % (p, cat))
-            return web.Response(text=txt)
+        return web.Response(text=txt)
     else:
         raw = config[context]['catalogs'].copy()
         return web.Response(text=json.dumps(raw))

@@ -577,12 +577,26 @@ def plot(spec, context=None, profile=None, out=None, **kw):
     **kw : dict
         Optional keyword arguments.  Supported keywords currently include:
 
-           sky = False
-               Overplot sky spectrum (if available)?
-           model = False
-               Overplot model spectrum (if available)?
-           lines = <dict>
-               Dictionary of spectral lines to mark.
+            rest_frame - Whether or not to plot the spectra in the
+                         rest-frame  (def: True)
+                     z - Redshift value
+                  xlim - Set the xrange of the plot
+                  ylim - Set the yrange of the plot
+
+                 bands - A comma-delimited string of which bands to plot,
+                         a combination of 'flux,model,sky,ivar'
+            mark_lines - Which lines to mark.  No lines marked if None or
+                         an empty string, otherwise one of 'em|abs|all|both'
+                  grid - Plot grid lines (def: True)
+                  dark - Dark-mode plot colors (def: True)
+              em_lines - List of emission lines to plot.  If not given,
+                         all the lines in the default list will be plotted.
+             abs_lines - Lines of absorption lines to plot.  If not given,
+                         all the lines in the default list will be plotted.
+             spec_args - Plotting kwargs for the spectrum
+            model_args - Plotting kwargs for the model
+             ivar_args - Plotting kwargs for the ivar
+              sky_args - Plotting kwargs for the sky
 
     Returns
     -------
@@ -746,7 +760,7 @@ def plotGrid(id_list, nx, ny, page=0, context=None, profile=None, **kw):
 # --------------------------------------------------------------------
 # STACKEDIMAGE -- Get a stacked image of a list of spectra.
 #
-def stackedImage(id_list, fmt='png', align=False, yflip=False,
+def stackedImage(id_list, align=False, yflip=False,
                  context=None, profile=None, **kw):
     '''Get ...
 
@@ -784,7 +798,7 @@ def stackedImage(id_list, fmt='png', align=False, yflip=False,
 
     '''
     pass
-    return spc_client.stackedImage(id_list, fmt=fmt, align=align, yflip=yflip,
+    return spc_client.stackedImage(id_list, align=align, yflip=yflip,
                  context=context, profile=profile, **kw)
 
 
@@ -1517,9 +1531,9 @@ class specClient(object):
 
                 rest_frame - Whether or not to plot the spectra in the
                              rest-frame  (def: True)
-                         z - Redshift value
-                      xlim - Setting the xrange of the plot
-                      ylim - Setting the yrange of the plot
+                         z - Redshift value (def: None)
+                      xlim - Set the xrange of the plot
+                      ylim - Set the yrange of the plot
     
                      bands - A comma-delimited string of which bands to plot,
                              a combination of 'flux,model,sky,ivar'
@@ -1743,6 +1757,7 @@ class specClient(object):
         token = kw['token'] if 'token' in kw else self.auth_token
         verbose = kw['verbose'] if 'verbose' in kw else False
         debug = kw['debug'] if 'debug' in kw else False
+        fmt = kw['fmt'] if 'fmt' in kw else 'png'
 
         # Set service call headers.
         headers = {'Content-Type' : 'application/x-www-form-urlencoded',
@@ -1778,13 +1793,16 @@ class specClient(object):
               }
 
         resp = requests.post (url, data=data, headers=headers)
-        return Image.open(BytesIO(resp.content))
+        if fmt == 'png':
+            return Image.open(BytesIO(resp.content))
+        else:
+            return resp.content
 
 
     # --------------------------------------------------------------------
     # STACKEDIMAGE -- Get a stacked image of a list of spectra.
     #
-    def stackedImage(self, id_list, fmt='png', align=False, yflip=False,
+    def stackedImage(self, id_list, align=False, yflip=False,
                      context=None, profile=None, **kw):
         '''Get ...
     
@@ -1838,6 +1856,7 @@ class specClient(object):
         token = kw['token'] if 'token' in kw else self.auth_token
         verbose = kw['verbose'] if 'verbose' in kw else False
         debug = kw['debug'] if 'debug' in kw else False
+        fmt = kw['fmt'] if 'fmt' in kw else 'png'
 
         # Set service call headers.
         headers = {'Content-Type' : 'application/x-www-form-urlencoded',
@@ -1865,7 +1884,10 @@ class specClient(object):
               }
 
         resp = requests.post (url, data=data, headers=headers)
-        return Image.open(BytesIO(resp.content))
+        if fmt == 'png':
+            return Image.open(BytesIO(resp.content))
+        else:
+            return resp.content
 
 
     ###################################################
@@ -1885,7 +1907,7 @@ class specClient(object):
             * spec = 
             * rest_frame - Whether or not to plot the spectra in the
                            rest-frame.  (def: True)
-            * z - Redshift
+            * z - Redshift (def: None)
             * xlim - Setting the xrange of the plot
             * ylim - Setting the yrange of the plot
     
