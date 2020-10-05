@@ -42,12 +42,52 @@ warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 import numpy as np
 
-is_py3 = sys.version_info.major == 3
-
 
 DEBUG = False                   # Debug flag
+config = {}			# Global config file
+is_py3 = sys.version_info.major == 3
 
-release = 'dr16'
+# Default config file
+DEF_CONFIG = '/opt/services/specserver/spec.conf'
+
+# External config file (i.e. not in source tree)
+EXT_CONFIG = '/opt/services/lib/spec.conf'
+
+
+#  PARSECONFIG -- Parse the configuration file.
+#
+def parseConfig(file):
+    '''Parse the configuration file.
+    '''
+    import socket
+    global config
+
+    if os.path.exists(file):
+        config = json.load(open(file))
+        if is_py3:
+            profiles = list(config['profiles'].keys())    # Py3 version
+        else:
+            profiles = config['profiles'].keys()          # Py2 version
+
+        def_profile = 'default'
+        this_host = socket.gethostname().split('.')[0]    # simple host name
+        if this_host in profiles:
+            def_profile = this_host
+            cfg = config['profiles'][def_profile]
+            config['profiles']['default'].update(cfg)
+    else:
+        raise Exception ("No such config file: " + file)
+
+
+# Parse the configuration file specified by '--config' or else use
+# the default in the current directory.
+if os.path.exists('spec.conf'):
+    parseConfig('spec.conf')
+elif os.path.exists(EXT_CONFIG):
+    parseConfig(EXT_CONFIG)
+elif os.path.exists(DEF_CONFIG):
+    parseConfig(DEF_CONFIG)
+
 
 
 # =======================================
@@ -104,6 +144,92 @@ async def debug(request):
     return web.Response(text=str(debug))
 
 
+# PROFILES -- List the available profiles.
+#
+@routes.get('/spec/profiles')
+def profiles(request):
+    '''List the available profiles.
+    '''
+    # Process the service parameters.
+    profile = request.query['profile']
+    fmt = request.query['format']
+
+    if profile is None or profile == '' or profile.lower() == 'none':
+        profiles = config['profiles'].keys()            # Py2 version
+
+        if fmt == 'csv':
+            return ",".join(profiles)
+        elif fmt == 'text':
+            txt = ''
+            for p in sorted(profiles):
+                prof = config['profiles'][p]
+                if prof['type'] in ['public','external']:
+                    txt = txt + ("%16s   %s\n" % (p,str(prof['description'])))
+            return web.Response(text=txt)
+    else:
+        raw = config['profiles'][profile].copy()
+        del raw['user']                 # delete secrets from the copy
+        del raw['password']
+        del raw['host']
+        del raw['dbport']
+        del raw['vosEndpoint']
+        del raw['vosRootDir']
+        return web.Response(text=json.dumps(raw))
+
+
+# CONTEXTS -- List the available contexts.
+#
+@routes.get('/spec/contexts')
+def contexts(request):
+    '''List the available contexts.
+    '''
+    # Process the service parameters.
+    context = request.query['context']
+    fmt = request.query['format']
+
+    if context is None or context == '' or context.lower() == 'none':
+        context = config['contexts'].keys()            # Py2 version
+
+        if fmt == 'csv':
+            return ",".join(context)
+        elif fmt == 'text':
+            txt = ''
+            for p in sorted(context):
+                conf = config['contexts'][p]
+                if conf['type'] in ['public','external']:
+                    txt = txt + ("%16s   %s\n" % (p,str(conf['description'])))
+            return web.Response(text=txt)
+    else:
+        raw = config['contexts'].copy()
+        return web.Response(text=json.dumps(raw))
+
+
+# CATALOGS -- List the available catalogs for a given dataset context.
+#
+@routes.get('/spec/catalogs')
+def catalogs(request):
+    '''List the available catalogs for a given dataset context.
+    '''
+    # Process the service parameters.
+    context = request.query['context']
+    profile = request.query['profile']
+    fmt = request.query['format']
+
+    if context is None or context.lower() in ['default', '','none']:
+        catalogs = config['contexts'][context]['catalogs'].keys()
+
+        if fmt == 'csv':
+            return ",".join(catalogs)
+        elif fmt == 'text':
+            txt = ''
+            for p in sorted(catalogs):
+                cat = config['contexts'][context]['catalogs'][p]
+                txt = txt + ("%26s   %s\n" % (p, cat))
+            return web.Response(text=txt)
+    else:
+        raw = config[context]['catalogs'].copy()
+        return web.Response(text=json.dumps(raw))
+
 
 # =======================================
 # Data Service Endpoints
@@ -154,7 +280,6 @@ async def getSpec(request):
         if not align:
             f = data
         else:
-            debug = True
             wmin, wmax = data['loglam'][0], data['loglam'][-1]
             disp = float((wmax - wmin) / float(len(data['loglam'])))
             lpad = int(np.around(max((wmin - w0) / disp, 0.0)))
@@ -181,22 +306,23 @@ async def getSpec(request):
         print('res type: ' + str(type(res)))
         print('res shape: ' + str(res.shape))
 
-    tmp_file = NamedTemporaryFile(delete=False, dir='/tmp').name
-    np.save(tmp_file, res, allow_pickle=False)
+
+    tmp_file = NamedTemporaryFile(delete=True, dir='/tmp').name
+    np.save(tmp_file+'.npy', res, allow_pickle=False)
     with open(tmp_file+'.npy', 'rb') as fd:
         _bytes = fd.read()
-    os.unlink(tmp_file)
+    os.unlink(tmp_file+'.npy')
 
     if bands != 'all':
         data = np.load(str(fname))
         dbands = data[[c for c in list(data.dtype.names) if c in bands]]
         dbands = rfn.repack_fields(dbands)
 
-        tmp_file = NamedTemporaryFile(delete=False, dir='/tmp').name
-        np.save(tmp_file, dbands, allow_pickle=False)
+        tmp_file = NamedTemporaryFile(delete=True, dir='/tmp').name
+        np.save(tmp_file+'.npy', dbands, allow_pickle=False)
         with open(tmp_file+'.npy', 'rb') as fd:
             _bytes = fd.read()
-        os.unlink(tmp_file)
+        os.unlink(tmp_file+'.npy')
 
     en_time = time.time()
     logging.info ('getSpec time: %g  NSpec: %d' % (en_time-st_time,nspec))
@@ -246,7 +372,6 @@ async def gridplot(request):
             h_sizes[h] = max(h_sizes[h], im.size[0])
             v_sizes[v] = max(v_sizes[v], im.size[1])
         h_sizes, v_sizes = np.cumsum([0] + h_sizes), np.cumsum([0] + v_sizes)
-        print ('sizes = %d %d' % (h_sizes[-1],v_sizes[-1]))
         im_grid = Image.new('RGB', (h_sizes[-1],v_sizes[-1]),color='white')
         for i, im in enumerate(images):
             im_grid.paste(im, (h_sizes[i % n_horiz], v_sizes[i // n_horiz]))

@@ -49,7 +49,46 @@ from aiohttp import web
 # Import the Async implementation
 from svr_async import app as svr_async
 
+config = {}			# Global configuration data
 
+is_py3 = sys.version_info.major == 3
+
+
+# Default config file
+DEF_CONFIG = '/opt/services/specserver/spec.conf'
+
+# External config file (i.e. not in source tree)
+EXT_CONFIG = '/opt/services/lib/spec.conf'
+
+
+
+#  PARSECONFIG -- Parse the configuration file.
+#
+def parseConfig(file):
+    '''Parse the configuration file.
+    '''
+    import socket
+    global config
+
+    if os.path.exists(file):
+        config = json.load(open(file))
+        if is_py3:
+            profiles = list(config['profiles'].keys())    # Py3 version
+        else:
+            profiles = config['profiles'].keys()          # Py2 version
+
+        def_profile = 'default'
+        this_host = socket.gethostname().split('.')[0]    # simple host name
+        if this_host in profiles:
+            def_profile = this_host
+            cfg = config['profiles'][def_profile]
+            config['profiles']['default'].update(cfg)
+    else:
+        raise Exception ("No such config file: " + file)
+
+
+#  CREATE_PARSER -- Commandline argument parser.
+#
 def create_parser():
     '''Commandline argument parser.
     '''
@@ -58,14 +97,29 @@ def create_parser():
                      "synchronous (flask) spectro server"))
 
     parser.add_argument("-s", "--sync", action="store_true")
-    parser.add_argument("--host", default="localhost", type=str)
-    parser.add_argument("--port", default=6999, type=int)
+    parser.add_argument("--config", default="spec.conf", type=str)
+    parser.add_argument("--host", default="gp06.datalab.noao.edu", type=str)
+    parser.add_argument("--port", default=6998, type=int)
 
     return parser
 
 
+#  Application MAIN
+#
 def main():
     parsed = create_parser().parse_args()
+
+    # Parse the configuration file specified by '--config' or else use
+    # the default in the current directory.
+    if os.path.exists(parsed.config):
+        parseConfig(parsed.config)
+    elif os.path.exists(EXT_CONFIG):
+        parseConfig(EXT_CONFIG)
+    elif os.path.exists(DEF_CONFIG):
+        parseConfig(DEF_CONFIG)
+    else:
+        raise Exception ('No config file found.')
+
     if parsed.sync:
         print("Starting Flask server")
         svr_sync.run(

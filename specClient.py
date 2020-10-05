@@ -30,7 +30,7 @@ __version__ = 'v1.0.0'
      profs = list_profiles  (optval, token=None, profile=None, fmt='text')
      profs = list_profiles  (token=None, profile=None, fmt='text')
 
-           svcs = services  (name=None, fmt=None, profile='default')
+       catalogs = catalogs  (context='default', profile='default')
 
     QUERY INTERFACE:
             id_list = query (<region> | <coord, size> | <ra, dec, size>,
@@ -114,9 +114,9 @@ if THIS_HOST[:5] == 'dldev':
     DEF_SERVICE_ROOT = "http://dldev.datalab.noao.edu"
 elif THIS_HOST[:6] == 'dltest':
     DEF_SERVICE_ROOT = "http://dltest.datalab.noao.edu"
-#
 #elif THIS_HOST[:5] == 'munch':                          # DELETE ME
 #    DEF_SERVICE_ROOT = "http://localhost:6998"          # DELETE ME
+
 
 # Allow the service URL for dev/test systems to override the default.
 sock = socket.socket(type=socket.SOCK_DGRAM)     # host IP address
@@ -204,7 +204,7 @@ def get_profile():
 # SET_CONTEXT -- Set the dataset context to use.
 #
 def set_context(context):
-    return spc_client.set_context(profile)
+    return spc_client.set_context(context)
 
 # --------------------------------------------------------------------
 # GET_CONTEXT -- Get the dataset context to use.
@@ -289,11 +289,11 @@ def list_contexts(optval, token=None, contexts=None, fmt='text'):
                                          contexts=optval, fmt=fmt)
 
 @multimethod('spc',0,False)
-def list_contexts(token=None, profile=None, fmt='text'):
+def list_contexts(token=None, context=None, fmt='text'):
     '''Retrieve the contexts supported by the spectro data service.
 
     Usage:
-        list_contexts (token=None, contexts=None, fmt='text')
+        list_contexts (token=None, context=context, fmt='text')
 
     MultiMethod Usage:  
     ------------------
@@ -327,6 +327,15 @@ def list_contexts(token=None, profile=None, fmt='text'):
     '''
     return spc_client._list_contexts(token=def_token(token),
                                      context=context, fmt=fmt)
+
+
+
+# --------------------------------------------------------------------
+# CATALOGS -- List available catalogs for a given dataset context
+#
+def catalogs(context='default', profile='default'):
+    return spc_client.catalogs(context=context, profile=profile)
+
 
 
 
@@ -391,6 +400,13 @@ def query(region, constraint=None, out=None,
     constraint : str
         A valid SQL syntax that can be used as a WHERE constraint in the 
         search query.
+
+    out : str
+        Output filename to create.  If None or an empty string the query
+        results are returned directly to the client.  Otherwise, results
+        are writeen to the named file with one identifier per line.  A
+        Data Lab 'vos://' prefix will save results to the named virtual
+        storage file.
 
     context : str 
         Dataset context.
@@ -842,6 +858,7 @@ class specClient(object):
             profile = specClient.client.set_profile("dev")
         '''
         self.svc_profile = spcToString(profile)
+        return 'OK'
 
     def get_profile(self):
         '''Get the requested service profile.
@@ -884,6 +901,7 @@ class specClient(object):
             context = specClient.client.set_context("dev")
         '''
         self.svc_context = spcToString(context)
+        return 'OK'
 
     def get_context(self):
         '''Get the requested dataset context.
@@ -972,12 +990,11 @@ class specClient(object):
         '''
         headers = self.getHeaders (token)
 
-        dburl = '%s/profiles?' % self.svc_url
-        if profile != None and profile != 'None' and profile != '':
-            dburl += "profile=%s&" % profile
-        dburl += "format=%s" % fmt
+        svc_url = '%s/profiles?' % self.svc_url
+        svc_url += "profile=%s&" % profile
+        svc_url += "format=%s" % fmt
 
-        r = requests.get (dburl, headers=headers)
+        r = requests.get (svc_url, headers=headers)
         profiles = spcToString(r.content)
         if '{' in profiles:
             profiles = json.loads(profiles)
@@ -987,41 +1004,58 @@ class specClient(object):
 
 
     @multimethod('_spc',1,True)
-    def list_contexts(self, optval, token=None, profile=None, fmt='text'):
+    def list_contexts(self, optval, token=None, context=None, fmt='text'):
         '''Usage:  specClient.client.list_contexts (token, ...)
         '''
         if optval is not None and len(optval.split('.')) >= 4:
             # optval looks like a token
             return self._list_contexts (token=def_token(optval),
-                                        profile=profile, fmt=fmt)
+                                        context=context, fmt=fmt)
         else:
             # optval looks like a token
-            return self._list_contexts (token=def_token(token), profile=optval,
+            return self._list_contexts (token=def_token(token), context=optval,
                                         fmt=fmt)
 
     @multimethod('_spc',0,True)
-    def list_contexts(self, token=None, profile=None, fmt='text'):
+    def list_contexts(self, token=None, context=None, fmt='text'):
         '''Usage:  specClient.client.list_contexts (...)
         '''
-        return self._list_contexts(token=def_token(token), profile=profile,
-                             format=format)
+        return self._list_contexts(token=def_token(token), context=context,
+                             fmt=fmt)
 
-    def _list_contexts(self, token=None, profile=None, format='text'):
+    def _list_contexts(self, token=None, context=None, fmt='text'):
         '''Implementation of the list_contexts() method.
         '''
         headers = self.getHeaders (token)
 
-        dburl = '%s/contexts?' % self.svc_url
-        if profile != None and profile != 'None' and profile != '':
-            dburl += "profile=%s&" % profile
-        dburl += "format=%s" % format
+        svc_url = '%s/contexts?' % self.svc_url
+        svc_url += "context=%s&" % context
+        svc_url += "format=%s" % fmt
 
-        r = requests.get (dburl, headers=headers)
+        r = requests.get (svc_url, headers=headers)
         contexts = spcToString(r.content)
         if '{' in contexts:
             contexts = json.loads(contexts)
 
         return spcToString(contexts)
+
+
+    def catalogs(self, context='default', profile='default'):
+        '''Usage:  specClient.client.catalogs (...)
+        '''
+        headers = self.getHeaders (None)
+
+        svc_url = '%s/catalogs?' % self.svc_url
+        svc_url += "context=%s&" % context
+        svc_url += "profile=%s&" % profile
+        svc_url += "format=%s&" % 'text'
+
+        r = requests.get (svc_url, headers=headers)
+        catalogs = spcToString(r.text)
+        if '{' in catalogs:
+            catalogs = json.loads(catalogs)
+
+        return spcToString(catalogs)
 
 
 
@@ -1298,6 +1332,7 @@ class specClient(object):
 
         # Process optional parameters.
         cutout = kw['cutout'] if 'cutout' in kw else self.auth_token
+        bands = kw['bands'] if 'bands' in kw else 'all'
         token = kw['token'] if 'token' in kw else self.auth_token
         verbose = kw['verbose'] if 'verbose' in kw else False
         debug = kw['debug'] if 'debug' in kw else False
@@ -1337,7 +1372,7 @@ class specClient(object):
 
         # Initialize the payload.
         data = {'id_list' : list(id_list),
-                'bands' : 'all',
+                'bands' : bands,
                 'format' : fmt,
                 'align' : align,
                 'cutout' : cutout,
@@ -1378,7 +1413,7 @@ class specClient(object):
             print ('shape data: ' + str(_data.shape))
 
 
-        if fmt.lower() == 'FITS':
+        if fmt.lower() == 'fits':
             # Note: assumes a single file....FIXME
             return _data
         else:
@@ -1390,7 +1425,7 @@ class specClient(object):
                 for d in _data:
                     np_data.append(pd.DataFrame(data=d, columns=d.dtype.names))
                 return np_data
-            elif fmt == 'Spectrum1D':
+            elif fmt.lower() == 'spectrum1d':
                 # FIXME: column names are SDSS-specific??
                 np_data = []
                 for d in _data:
@@ -2115,7 +2150,8 @@ _em_lines = [
     {"name" : "[N II] 6583",    "lambda" : 6585.268, "label" : "[N II]" },
     {"name" : "[S II] 6716",    "lambda" : 6718.294, "label" : "[S II]" },
     {"name" : "[S II] 6730",    "lambda" : 6732.678, "label" : "[S II]" },
-    {"name" : "[Ar III] 7135",  "lambda" : 7137.758, "label" : "[Ar III]" },]
+    {"name" : "[Ar III] 7135",  "lambda" : 7137.758, "label" : "[Ar III]"}
+    ]
 
 # Absorption lines
 _abs_lines = [
@@ -2136,7 +2172,7 @@ _abs_lines = [
     {"name" : "Mg I 5167",      "lambda" : 5168.762, "label" : "Mg I"},
     {"name" : "D2 (Na I 5889)", "lambda" : 5891.582, "label" : " " },
     {"name" : "D1 (Na I 5895)", "lambda" : 5897.554, "label" : "D1,2 (Na I)" },
-    {"name" : "H-alpha",        "lambda" : 6564.614, "label" : "H$\\alpha$"},
+    {"name" : "H-alpha",        "lambda" : 6564.614, "label" : "H$\\alpha$"}
     ]
 
 
