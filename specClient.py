@@ -1976,6 +1976,7 @@ class specClient(object):
         if dark:
             fig = plt.figure(dpi=100, figsize = (12,5), facecolor='#2F4F4F')
             plt.rcParams['axes.facecolor']='#121212'
+            plt.rcParams['axes.edgecolor']='#00FFFF'
         else:
             fig = plt.figure(dpi=100, figsize = (12,5))
             plt.rcParams['axes.facecolor']='#FFFFFF'
@@ -1992,7 +1993,7 @@ class specClient(object):
     
         plt.xlim(xlim)
         plt.ylim(ylim)
-        am_color = ('y' if dark else 'black')
+        am_color = ('#00FF00' if dark else 'black')
         if rest_frame:
             plt.xlabel('Rest Wavelength ($\AA$)', color=am_color)
         else:
@@ -2001,7 +2002,7 @@ class specClient(object):
         plt.ylabel('$F_{\lambda}$ ($10^{-17}~ergs~s^{-1}~cm^{-2}~\AA^{-1}$)',
                   color=am_color)
     
-        if dark: ax.tick_params(color='w', labelcolor='w')
+        if dark: ax.tick_params(color='cyan', labelcolor='yellow')
         if grid: plt.grid(color='gray', linestyle='dashdot', linewidth=0.5)
     
         if title not in [None, '']:
