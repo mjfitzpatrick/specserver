@@ -98,7 +98,7 @@ def create_parser():
 
     parser.add_argument("-s", "--sync", action="store_true")
     parser.add_argument("--config", default="spec.conf", type=str)
-    parser.add_argument("--host", default="gp06.datalab.noao.edu", type=str)
+    parser.add_argument("--host", default="gp07.datalab.noao.edu", type=str)
     parser.add_argument("--port", default=6998, type=int)
 
     return parser

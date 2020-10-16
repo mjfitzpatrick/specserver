@@ -245,6 +245,7 @@ async def getSpec(request):
     ''' 
     '''
     params = await request.post()
+    #print('params = ' + str(params))
     try:
         id_list = params['id_list']
         bands = params['bands']                         # NYI
@@ -263,22 +264,35 @@ async def getSpec(request):
 
     st_time = time.time()
 
-    # Instantiate the dataset service based on the context parameter.
-    svc = getSvc(context)()
+    # Instantiate the dataset service based on the context.
+    svc = getSvc(context)
 
-    # Convert the request parameter to a list
-    if id_list[0] == '[':
-         ids = map(int, id_list[1:-1].split(','))
-    else:
-         ids = np.array([np.uint64(id_list)])
+    print('GETSPEC ----------')
+    print('ty id_list = ' + str(type(id_list)))
+    print('id_list = ' + str(id_list))
 
+    # From the service call we get a string which we'll need to map to
+    # an array of identifiers valid for the service.
+    ids = svc.expandIDList(id_list)
+    print('len ids = ' + str(len(ids)))
+    print('ty ids = ' + str(type(ids)))
+    print('ty ids elem = ' + str(type(ids[0])))
+
+    # If called from something other than the client API we might not know
+    # the wavelength limits of the collection, so compute it here so we can
+    # still align properly.
+    if w0 in [None, 0.0] and w1 in [None, 0.0] and align:
+        w0, w1, nspec = _listSpan(svc, ids)
+        
     res = None
     align = (w0 != w1)
     nspec = 0
+    ptime = 0.0
     for id in ids:
+        p0 = time.time()
         nspec = nspec + 1
         fname = svc.dataPath(id, 'npy')
-        data = np.load(str(fname))
+        data = svc.getData(str(fname))
 
         if not align:
             f = data
@@ -304,6 +318,8 @@ async def getSpec(request):
             res = f
         else:
             res = np.vstack((res,f))
+        p1 = time.time()
+        ptime = ptime + (p1 - p0)
 
     if debug:
         print('res type: ' + str(type(res)))
@@ -317,7 +333,7 @@ async def getSpec(request):
     os.unlink(tmp_file+'.npy')
 
     if bands != 'all':
-        data = np.load(str(fname))
+        data = svc.getData(str(fname))
         dbands = data[[c for c in list(data.dtype.names) if c in bands]]
         dbands = rfn.repack_fields(dbands)
 
@@ -337,8 +353,8 @@ async def getSpec(request):
 #
 @routes.get('/spec/preview')
 async def preview(request):
-    """ Get a preview plot of a spectrum.
-    """
+    ''' Get a preview plot of a spectrum.
+    '''
     try:
         spec_id = request.query['id']
         context = request.query['context']
@@ -347,18 +363,19 @@ async def preview(request):
         print ('ERROR: ' + str(e))
 
     # Instantiate the dataset service based on the context parameter.
-    svc = getSvc(context)()
+    svc = getSvc(context)
     fname = svc.previewPath(spec_id)
+    print ('preview fname: ' + fname)
 
-    return web.Response(body=svc.readData(fname))
+    return web.Response(body=svc.readFile(fname))
 
 
 # GRIDPLOT -- Return an image which is a grid plot of preview spectra.
 #
 @routes.post('/spec/plotGrid')
 async def gridplot(request):
-    """ Return an image which is a grid plot of preview spectra.
-    """
+    ''' Return an image which is a grid plot of preview spectra.
+    '''
 
     def pil_grid(images, max_horiz=np.iinfo(int).max):
         '''Examples:  pil_grid(imgs)      horizontal
@@ -419,8 +436,8 @@ async def gridplot(request):
 #
 @routes.post('/spec/listSpan')
 async def listSpan(request):
-    """ Return the span in wavelength of an aligned list of IDs. 
-    """
+    ''' Return the span in wavelength of an aligned list of IDs. 
+    '''
     # Process the service request arguments.
     params = await request.post()
     try:
@@ -433,8 +450,13 @@ async def listSpan(request):
         logging.error ('Param Error: ' + str(e))
         return web.Response(text='Param Error: ' + str(e))
 
+    print('listSpan: ty=%s  "%s"' % (str(type(id_list)), str(id_list)))
+    svc = getSvc(context)
+    print('listSpan: svc=%s' % (str(svc)))
+    ids = svc.expandIDList(id_list)
+
     st_time = time.time()
-    w0,w1,nspec = _listSpan(getSvc(context)(), id_list)
+    w0,w1,nspec = _listSpan(svc, ids)
     en_time = time.time()
     logging.info ('listSpan time: %g  NSpec: %d' % (en_time-st_time,nspec))
 
@@ -445,8 +467,8 @@ async def listSpan(request):
 #
 @routes.post('/spec/stackedImage')
 async def stackedImage(request):
-    """ Return an image of stacked spectral flux arrays.
-    """
+    ''' Return an image of stacked spectral flux arrays.
+    '''
     # Process the service request arguments.
     params = await request.post()
     try:
@@ -472,13 +494,14 @@ async def stackedImage(request):
     st_time = time.time()
 
     svc = getSvc(context)()
-    w0, w1, nspec = _listSpan(svc, id_list)
+    ids = svc.expandIDList(id_list)
+    w0, w1, nspec = _listSpan(svc, ids)
 
     img_data = None
     ids = map(int, id_list[1:-1].split(','))
     for q in ids:
         fname = svc.dataPath(q, 'npy')
-        data = np.load(str(fname))
+        data = svc.getData(str(fname))
 
         wmin, wmax = data['loglam'][0], data['loglam'][-1]
         disp = float((wmax - wmin) / float(len(data['loglam'])))
@@ -611,24 +634,28 @@ def _listSpan(svc, id_list):
     '''
     w0 = 100000
     w1 = -99999
-    ids = map(int, id_list[1:-1].split(','))
+    #ids = map(int, id_list[1:-1].split(','))
+    #ids = svc.expandIDList(id_list)
+    ids = id_list
     nids = 0
     for p in ids:
         nids = nids + 1
         fname = svc.dataPath(p, 'npy')
-        data = np.load(str(fname))
+        data = svc.getData(str(fname))
         w0 = min(w0,data['loglam'][0])
         w1 = max(w1,data['loglam'][-1])
     return w0, w1, nids
 
 def getSvc(context):
+    '''Return the servie sub-class based on the given context.
+    '''
     try:
-        svc = Registry.services[context]
+        svc = Registry.services[context]()
     except Exception as e:
-        logging.error ('getSvc(%s) ERROR: %s' % (context,str(e)))
+        logging.error ('getSvc(%s) ERROR: %s' % (context, str(e)))
         return None
-
-    return svc
+    else:
+        return svc
 
 
 ########################################################################

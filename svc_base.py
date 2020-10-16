@@ -15,24 +15,35 @@ class Service(object):
         self.release = release
         pass
 
-    def dataPath (self, id, fmt=None):
+    def dataPath(self, id, fmt=None):
         '''Return the path to the spectrum data file.
         '''
         pass
 
-    def previewPath (self, id):
+    def previewPath(self, id):
         '''Return the path to the spectrum preview plot.
         '''
         pass
 
-    def readData (self, fname):
+    def readFile(self, fname):
         '''Return the bytes in the named file.
         '''
         with open(fname, 'rb') as fd:
             _bytes = fd.read()
         return _bytes
 
-    def Test (ctx):
+    def getData(self, fname):
+        '''Return the data in the named file as a numpy array.
+        '''
+        pass
+
+    def expandIDList(self, id_list):
+        '''Expand/convert the input id_list we get from the service call as
+           a string, to an array of valid identifiers for the dataset.
+        '''
+        pass
+
+    def Test(ctx):
         import logging
         print('BASE TEST: context = ' + ctx)
         logging.info('BASE TEST: context = ' + ctx)

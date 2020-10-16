@@ -1403,6 +1403,9 @@ class specClient(object):
                    'X-DL-OriginHost': self.hostname,
                    'X-DL-AuthToken': def_token(None)}  # application/x-sql
 
+        if debug:
+            print('getSpec(): in ty id_list = ' + str(type(id_list)))
+
         if isinstance(id_list,str):
             if os.path.exists(id_list):
                 # Read list from a local file.
@@ -1426,11 +1429,21 @@ class specClient(object):
                         cnv_list.append(int(el))
                 id_list = np.array(cnv_list)
 
+        elif isinstance(id_list,int):
+            print('getSpec(): GOT AN INT')
+            id_list = [ id_list ]
+
+        elif isinstance(id_list,tuple):
+            print('getSpec(): GOT A TUPLE')
+            id_list = [ id_list ]
+
         elif not (isinstance(id_list, list) or isinstance(id_list, np.ndarray)):
             id_list = np.array([id_list])
 
+        print('ty id_list: ' + str(type(id_list)))
+
         # Initialize the payload.
-        data = {'id_list' : list(id_list),
+        data = {'id_list' : id_list,
                 'bands' : bands,
                 'format' : fmt,
                 'align' : align,
@@ -1460,7 +1473,7 @@ class specClient(object):
             # so we can return a list object.
             _data = []
             for id in id_list:
-                data['id_list'] = list(np.array([id]))
+                data['id_list'] = id
                 resp = requests.post (url, data=data, headers=headers)
                 np_data = np.load(BytesIO(resp.content), allow_pickle=False)
                 _data.append(np_data)

@@ -6,9 +6,28 @@ __authors__ = 'Mike Fitzpatrick <fitz@noao.edu>'
 __version__ = 'v1.0.0'
 
 
-from svc_base import Service
-import numpy as np
+import os
+import glob
+import re
+import time
 import logging
+import numpy as np
+from svc_base import Service
+from astropy.table import Table
+
+
+# Default RUN2D values for various SDSS data releases.
+sdss_run2d = {'dr16': [26, 103, 104, 'v5_13_0'],
+              'dr15': [26, 103, 104, 'v5_10_0'],
+              'dr14': [26, 103, 104, 'v5_10_0'],
+              'dr13': [26, 103, 104, 'v5_9_0'],
+              'dr12': [26, 103, 104, 'v5_7_0', 'v5_7_2'],
+              'dr11': [26, 103, 104, 'v5_6_5'],
+              'dr10': [26, 103, 104, 'v5_5_12'],
+              'dr9': [26, 103, 104, 'v5_4_45'],
+              'dr8': [26, 103, 104]
+             }
+
 
 # Base service class.
 class sdssService(Service):
@@ -16,12 +35,15 @@ class sdssService(Service):
     '''
 
     def __init__(self, release='dr16'):
-        self.release = release                  # SDSS data release
-        self.fits_root = '/ssd0/'               # Root path of FITS data
-        self.cache_root = '/ssd0/'              # Root path of cached data
-        self.data_root = 'sdss/%s/sdss/spectro/redux/' % release
+        self.release = release                            # SDSS data release
+        self.fits_root = '/net/mss1/archive/hlsp/sdss/'   # Root to FITS data
+        self.cache_root = '/ssd0/sdss/'                   # Root to cached data
+        self.data_root = '%s/sdss/spectro/redux/' % release
 
-    def dataPath (self, id, fmt='npy'):
+        self.run2d = sdss_run2d[release]
+
+
+    def dataPath(self, id, fmt='npy'):
         '''Get the path to the SDSS spectrum data file.
         '''
         if fmt.lower() == 'fits':       # 'fmt' can be a client format
@@ -29,25 +51,175 @@ class sdssService(Service):
         else:
             return self.idToPath(id, 'npy')
 
-    def previewPath (self, id):
+    def previewPath(self, id):
         '''Get the path to the SDSS spectrum preview file.
         '''
         return self.idToPath(id, 'png')
 
+    def findFile(self, plate, mjd, fiber, extn):
+        '''Find a file given a plate/mjd/fiber tuple.
+        '''
+        st_time = time.time()
+        base_path = self.fits_root if extn == 'fits' else self.cache_root
+        #spath = base_path + \
+        #          '%s/*/spectro/redux/*/%d/spec-%04i-%05i-%04i.%s' % \
+        #          (self.release,plate,plate,mjd,fiber,extn)
+        #files = glob.glob(spath)
+        #print('findFiles: ' + str(files))
+        #for f in files:
+        #    if os.path.exists(f):
+        #        return(f)
 
-    def idToPath (self, specobjid, extn):
+        for r in self.run2d:
+            spath = base_path + \
+                  '%s/sdss/spectro/redux/%s/%d/spec-%04i-%05i-%04i.%s' % \
+                  (self.release,str(r),plate,plate,mjd,fiber,extn)
+            if os.path.exists(spath):
+                print('findFile() time: ' + str(time.time()-st_time))
+                return(spath)
+
+        # FALLTHRU
+        spath = base_path + \
+                  '%s/*/spectro/redux/*/%d/spec-%04i-%05i-%04i.%s' % \
+                  (self.release,plate,plate,mjd,fiber,extn)
+        files = glob.glob(spath)
+        print('findFiles: ' + str(files))
+        for f in files:
+            if os.path.exists(f):
+                print('findFile() time: ' + str(time.time()-st_time))
+                return(f)
+
+        print('findFile() time: ' + str(time.time()-st_time))
+        return None
+
+    def expandIDList(self, id_list):
+        '''Expand the input (string) identifier list to an array of valid
+           SDSS identifiers.  For plate/mjd/fiber/run2d tuples we also expand
+           wildcards.
+        '''
+        st_time = time.time()
+
+        # Remove the array brackets from the string and strip any internal
+        # (non-quoted) whitespace.  The result is an array of strings we
+        # can map to identifiers.
+        if debug: print('ID_LIST in: :' + str(id_list) + ':')
+        id_str = id_list[1:-1]  if id_list[0] == '[' else id_list
+        id_str = id_str.replace(' ','').replace(',(',' (')
+        id_str = id_str.replace("),",") ").replace(",("," (")
+        split_char = ' ' if '(' in id_str else ','
+        id_str = id_str.split(split_char)
+        if debug: print('ID_STR: ' + str(id_str))
+
+        if all(x.isdigit() for x in id_str):
+            # All identifiers are integers.
+            ids = np.uint64(id_str)
+        elif any(x.startswith('(') for x in id_str):
+            # At least some identifiers are tuple strings.
+            ids = []
+            for s in id_str:
+                if s[0] == '(':
+                    val = eval(s)
+                    if len(val) == 1:			# only plate given
+                        s = '(%s,"*","*")' % str(val[0])
+                    elif len(val) == 2:			# only plate/mjd given
+                        s = '(%s,%s,"*")' % (str(val[0]), str(val[1]))
+
+                    if s.find('*') > 0: 		# expand any wildcard
+                        # We're only using the pathnames to extract identifiers,
+                        # so use the FITS extension since that always exists.
+                        tup = eval(s)
+                        p, m, f = tup[0], tup[1], tup[2]
+
+                        base = self.fits_root
+                        spath = base + \
+                               '%s/*/spectro/redux/*/spectra/' % self.release
+                        spath = spath + '%d/spec-%s-%s-%s.fits' %  (p,p,m,f)
+                        files = glob.glob(spath)
+
+                        for p in glob.glob(spath):
+                            fn = p.split('/')[-1].split('-')
+                            s = p[len(base):].split('/')
+                            p, m, f = int(fn[1]), int(fn[2]), int(fn[3][:4])
+                            survey, run2d = s[0], s[4]
+                            ids.append((p,m,f,str(run2d)))
+                    else:
+                        ids.append(eval(s))
+                elif s.isdigit():
+                    ids.append(np.uint64(s))
+        else:
+            raise Exception('Unknown identifier values')
+
+        if debug:
+            print('EXPAND ids = ' + str(ids)[:128])
+            print('EXPAND len(ids) = ' + str(len(ids)))
+            print ('EXPAND time: ' + str(time.time() - st_time))
+        return ids
+
+    def getData(self, fname):
+        '''Return the data in the named file as a numpy array.
+        '''
+        if fname[-3:] == 'npy':
+            return np.load(str(fname))
+        elif fname[-4:] == 'fits':
+            data = Table.read(fname, hdu=1).as_array()
+            retval = BytesIO()
+            np.save(retval, data, allow_pickle=False)
+            return np.load(retval, allow_pickle=False)
+        else:
+            raise Exception('getdata(): Unknown file extension')
+
+    def idType(self, id):
         '''Get the path to a SDSS spectrum data file with the named extension.
         '''
-        u = unpack_specobjid(np.array([specobjid],dtype=np.uint64))
-        plate = u.plate[0]
-        mjd = u.mjd[0]
-        fiber = u.fiber[0]
-        run2d = u.run2d[0]
+        pass
 
-        base_path = self.fits_root if extn == 'fits' else self.cache_root
-        path = base_path + self.data_root + ('%s/%04i/' % (run2d, plate))
-        fname = path + 'spec-%04i-%05i-%04i.%s' %  (plate,mjd,fiber,extn)
+    def idToPath(self, id, extn):
+        '''Get the path to a SDSS spectrum data file with the named extension.
+        '''
+        #st_time = time.time()
+        if isinstance(id,str) or isinstance(id,np.unicode):
+            if id[0] == '(':
+                id = id.astype(np.uint64)
+            else:
+                id = int(id)
+        if isinstance(id,int) or isinstance(id,np.uint64):
+            # The ID is a 'specobjid' object
+            u = unpack_specobjid(np.array([id],dtype=np.uint64))
+            plate = u.plate[0]
+            mjd = u.mjd[0]
+            fiber = u.fiber[0]
+            run2d = u.run2d[0]
+        elif isinstance(id,tuple):
+            # The ID is a '(plate,mjd,fiber[,run2d])' tuple object
+            if len(id) >= 3:
+                 plate, mjd, fiber = id[0], id[1], id[2]
+                 if len(id) == 4:
+                     run2d = id[3]
+                 else:
+                     run2d = ''
+        else:
+            print('ty id: ' + str(type(id)))
+            raise Exception('Unknown identifier: ' + str(id))
 
+        if extn.startswith('.'):
+            extn = extn[1:]
+
+        if run2d == '':
+            fname = self.findFile(plate,mjd,fiber,extn)
+        else:
+            base_path = self.fits_root if extn == 'fits' else self.cache_root
+            base_path = base_path + self.data_root
+            path = base_path + ('%s/%04i/' % (run2d, plate))
+            fname = path + 'spec-%04i-%05i-%04i.%s' %  (plate,mjd,fiber,extn)
+            if not os.path.exists(fname):
+                print('FILE NOT FOUND: ' + fname)
+                fname = self.findFile(plate,mjd,fiber,extn)
+                print('NEW FILE: ' + str(fname))
+
+        if fname is None:
+            raise Exception('File not found: ')
+
+        #print('idToPath() time: ' + str(time.time()-st_time))
         return fname
 
 
@@ -216,16 +388,19 @@ def unpack_specobjid(specObjID):
     unpack.mjd = np.bitwise_and(tempobjid >> 24, 2**14 - 1) + 50000
 
     run2d = np.bitwise_and(tempobjid >> 10, 2**14 - 1)
-    N = ((run2d // 10000) + 5).tolist()
-    M = ((run2d % 10000) // 100).tolist()
-    P = (run2d % 100).tolist()
-    R = np.array(
+    if run2d == 0:
+        R = np.array('')
+    else:
+        N = ((run2d // 10000) + 5).tolist()
+        M = ((run2d % 10000) // 100).tolist()
+        P = (run2d % 100).tolist()
+        R = np.array(
             ['v{0:d}_{1:d}_{2:d}'.format(n, m, p) for n, m, p in zip(N, M, P)])
 
-    # Fix the integer version conversion.
-    R = np.where (R == 'v5_1_3', '103', R)
-    R = np.where (R == 'v5_1_4', '104', R)
-    R = np.where (R == 'v5_0_26', '26', R)
+        # Fix the integer version conversion.
+        R = np.where (R == 'v5_1_3', '103', R)
+        R = np.where (R == 'v5_1_4', '104', R)
+        R = np.where (R == 'v5_0_26', '26', R)
     unpack.run2d = R
 
     return unpack
