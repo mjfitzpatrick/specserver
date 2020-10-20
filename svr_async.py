@@ -266,17 +266,18 @@ async def getSpec(request):
 
     # Instantiate the dataset service based on the context.
     svc = getSvc(context)
+    svc.debug = debug
+    svc.verbose = verbose
 
-    print('GETSPEC ----------')
-    print('ty id_list = ' + str(type(id_list)))
-    print('id_list = ' + str(id_list))
 
     # From the service call we get a string which we'll need to map to
     # an array of identifiers valid for the service.
     ids = svc.expandIDList(id_list)
-    print('len ids = ' + str(len(ids)))
-    print('ty ids = ' + str(type(ids)))
-    print('ty ids elem = ' + str(type(ids[0])))
+    if debug:
+        print('GETSPEC ----------')
+        print('len ids = ' + str(len(ids)))
+        print('ty ids = ' + str(type(ids)))
+        print('ty ids elem = ' + str(type(ids[0])))
 
     # If called from something other than the client API we might not know
     # the wavelength limits of the collection, so compute it here so we can
@@ -324,7 +325,6 @@ async def getSpec(request):
     if debug:
         print('res type: ' + str(type(res)))
         print('res shape: ' + str(res.shape))
-
 
     tmp_file = NamedTemporaryFile(delete=True, dir='/tmp').name
     np.save(tmp_file+'.npy', res, allow_pickle=False)
@@ -450,9 +450,7 @@ async def listSpan(request):
         logging.error ('Param Error: ' + str(e))
         return web.Response(text='Param Error: ' + str(e))
 
-    print('listSpan: ty=%s  "%s"' % (str(type(id_list)), str(id_list)))
     svc = getSvc(context)
-    print('listSpan: svc=%s' % (str(svc)))
     ids = svc.expandIDList(id_list)
 
     st_time = time.time()

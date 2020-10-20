@@ -15,6 +15,8 @@ import numpy as np
 from svc_base import Service
 from astropy.table import Table
 
+from dl import queryClient as qc
+
 
 # Default RUN2D values for various SDSS data releases.
 sdss_run2d = {'dr16': [26, 103, 104, 'v5_13_0'],
@@ -41,6 +43,9 @@ class sdssService(Service):
         self.data_root = '%s/sdss/spectro/redux/' % release
 
         self.run2d = sdss_run2d[release]
+
+        self.debug = False
+        self.verbose = False
 
 
     def dataPath(self, id, fmt='npy'):
@@ -75,7 +80,7 @@ class sdssService(Service):
                   '%s/sdss/spectro/redux/%s/%d/spec-%04i-%05i-%04i.%s' % \
                   (self.release,str(r),plate,plate,mjd,fiber,extn)
             if os.path.exists(spath):
-                print('findFile() time: ' + str(time.time()-st_time))
+                if self.debug: print('findFile() time: ' + str(time.time()-st_time))
                 return(spath)
 
         # FALLTHRU
@@ -83,14 +88,70 @@ class sdssService(Service):
                   '%s/*/spectro/redux/*/%d/spec-%04i-%05i-%04i.%s' % \
                   (self.release,plate,plate,mjd,fiber,extn)
         files = glob.glob(spath)
-        print('findFiles: ' + str(files))
         for f in files:
             if os.path.exists(f):
-                print('findFile() time: ' + str(time.time()-st_time))
+                print('FINDFILE() time: ' + str(time.time()-st_time))
                 return(f)
 
-        print('findFile() time: ' + str(time.time()-st_time))
+        print('FINDFILE() time: ' + str(time.time()-st_time))
         return None
+
+    def expand (self, plate, mjd, fiber, run2d):
+        '''Expand wildcards in a tuple identifier.
+        '''
+        wp = None if plate == '*' else ('plate = %d' % int(plate))
+        wm = None if mjd == '*' else ('mjd = %d' % int(mjd))
+
+        if fiber.find('-') > 0 or fiber.find(':') > 0:
+            split_char = '-' if fiber.find('-') > 0 else ':'
+            st = int(fiber.split(split_char)[0])
+            en = int(fiber.split(split_char)[1])
+            wf = 'fiberid between %d and %d' % (st,en)
+        elif fiber.find(',') > 0:
+            flist = list(map(int, fiber.split(',')))
+            wa = str(flist).replace('[','(').replace(']',')')
+            wf = 'fiberid in %s' % wa
+        elif fiber.isdigit():
+            wf = 'fiberid = %s' % fiber
+        else:
+            wf = None
+
+        if run2d is None or run2d == '*':
+            wr = None
+        elif run2d.find(',') > 0:
+            rlist = list(map(int, run2d.split(',')))
+            wa = str(rlist).replace('[','(').replace(']',')')
+            wr = 'run2d in %s' % wa
+        else:
+            wr = "run2d = '%s'" % run2d
+
+        if all(w is None for w in [wp,wm,wf,wr]):
+            raise Exception('At least one of plate or mjd must be specified')
+        else:
+            w = '' if wp is None else wp
+            if wm is not None: 
+                w = w  + ('' if w == '' else ' AND ') + wm
+            if wf is not None:
+                w = w  + ('' if w == '' else ' AND ') + wf
+            if wr is not None:
+                w = w  + ('' if w == '' else ' AND ') + wr
+
+        query = '''SELECT plate,mjd,fiberid,run2d,survey 
+                   FROM sdss_%s.specobj WHERE %s''' % (self.release, w)
+
+        res = qc.query(sql=query)
+        rows = res.split('\n')[1:-1]
+        ids = []
+        for row in rows:
+            p,m,f,r,s = row.split(',')
+            base_path = self.cache_root + self.data_root
+            path = base_path + ('%s/%04i/' % (r, int(p)))
+            fname = path + 'spec-%04i-%05i-%04i.npy' % (int(p),int(m),int(f))
+            ids.append(tuple([int(p),int(m),int(f),r]))
+
+        if self.debug: print ('return ids = :%s:' % ids)
+        return(ids)
+
 
     def expandIDList(self, id_list):
         '''Expand the input (string) identifier list to an array of valid
@@ -102,13 +163,13 @@ class sdssService(Service):
         # Remove the array brackets from the string and strip any internal
         # (non-quoted) whitespace.  The result is an array of strings we
         # can map to identifiers.
-        if debug: print('ID_LIST in: :' + str(id_list) + ':')
+        if self.debug: print('ID_LIST in: :' + str(id_list) + ':')
         id_str = id_list[1:-1]  if id_list[0] == '[' else id_list
         id_str = id_str.replace(' ','').replace(',(',' (')
         id_str = id_str.replace("),",") ").replace(",("," (")
         split_char = ' ' if '(' in id_str else ','
         id_str = id_str.split(split_char)
-        if debug: print('ID_STR: ' + str(id_str))
+        if self.debug: print('ID_STR: ' + str(id_str))
 
         if all(x.isdigit() for x in id_str):
             # All identifiers are integers.
@@ -118,38 +179,23 @@ class sdssService(Service):
             ids = []
             for s in id_str:
                 if s[0] == '(':
-                    val = eval(s)
-                    if len(val) == 1:			# only plate given
-                        s = '(%s,"*","*")' % str(val[0])
-                    elif len(val) == 2:			# only plate/mjd given
-                        s = '(%s,%s,"*")' % (str(val[0]), str(val[1]))
-
-                    if s.find('*') > 0: 		# expand any wildcard
-                        # We're only using the pathnames to extract identifiers,
-                        # so use the FITS extension since that always exists.
-                        tup = eval(s)
-                        p, m, f = tup[0], tup[1], tup[2]
-
-                        base = self.fits_root
-                        spath = base + \
-                               '%s/*/spectro/redux/*/spectra/' % self.release
-                        spath = spath + '%d/spec-%s-%s-%s.fits' %  (p,p,m,f)
-                        files = glob.glob(spath)
-
-                        for p in glob.glob(spath):
-                            fn = p.split('/')[-1].split('-')
-                            s = p[len(base):].split('/')
-                            p, m, f = int(fn[1]), int(fn[2]), int(fn[3][:4])
-                            survey, run2d = s[0], s[4]
-                            ids.append((p,m,f,str(run2d)))
+                    v = eval(s)
+                    if len(v) == 1:
+                        _ids = self.expand (v[0],'*','*','*')
+                    elif len(v) == 2:
+                        _ids = self.expand (v[0],v[1],'*','*')
+                    elif len(v) == 3:
+                        _ids = self.expand (v[0],v[1],v[2],'*')
                     else:
-                        ids.append(eval(s))
+                        _ids = self.expand (v[0],v[1],v[2],v[3])
+
+                    ids = ids + _ids
                 elif s.isdigit():
                     ids.append(np.uint64(s))
         else:
             raise Exception('Unknown identifier values')
 
-        if debug:
+        if self.debug:
             print('EXPAND ids = ' + str(ids)[:128])
             print('EXPAND len(ids) = ' + str(len(ids)))
             print ('EXPAND time: ' + str(time.time() - st_time))
@@ -176,7 +222,7 @@ class sdssService(Service):
     def idToPath(self, id, extn):
         '''Get the path to a SDSS spectrum data file with the named extension.
         '''
-        #st_time = time.time()
+        st_time = time.time()
         if isinstance(id,str) or isinstance(id,np.unicode):
             if id[0] == '(':
                 id = id.astype(np.uint64)
@@ -198,13 +244,15 @@ class sdssService(Service):
                  else:
                      run2d = ''
         else:
-            print('ty id: ' + str(type(id)))
             raise Exception('Unknown identifier: ' + str(id))
 
+        # Strip a leading '.' from the extension name if present.
         if extn.startswith('.'):
             extn = extn[1:]
 
         if run2d == '':
+            # If we don't have an explicity RUN2D value, search for a 
+            # plate/mjd/fiber combo in the given context.
             fname = self.findFile(plate,mjd,fiber,extn)
         else:
             base_path = self.fits_root if extn == 'fits' else self.cache_root
@@ -219,7 +267,7 @@ class sdssService(Service):
         if fname is None:
             raise Exception('File not found: ')
 
-        #print('idToPath() time: ' + str(time.time()-st_time))
+        if self.debug: print('idToPath() time: ' + str(time.time()-st_time))
         return fname
 
 
