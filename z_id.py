@@ -1,4 +1,5 @@
 import specClient as spec
+import time
 
 spec.set_svc_url('http://gp07.datalab.noao.edu:6998/spec')
 
@@ -23,6 +24,14 @@ id_tup3  = (1963,54331,122)                             # tuple identifier
 id_tup2a = (1963,54331)                                 # plate/mjd tuple
 id_tup2b = (1963,54331,'*','103')                       # fiber wildcard
 id_tup2c = (1963,54331,'*')                             # fiber wildcard
+id_tup2d = (1963,'*')                                   # plate/mjd tuple
+id_tup2e = (1963,'*',100)                               # plate/mjd tuple
+id_tup2f = ('*',54331)                                  # plate/mjd tuple
+id_tup2g = ('*',54331,100)                              # plate/mjd tuple
+id_tup2h = ('1962,1963','*')                            # plate list tuple
+id_tup2i = ('*','53321,54331')                          # plate/mjd tuple
+id_tup2j = ('*','53321,54331',100)                      # plate/mjd tuple
+id_tup2k = ('1962,1963','*',100,'26,103')               # plate list tuple
 
 test_ids =  [ id_int64,                                 # single int64
              [id_int64],                                # single int64 array
@@ -35,12 +44,23 @@ test_ids =  [ id_int64,                                 # single int64
              [id_tup1, id_int64, id_tup2, id_int64],    #   "      "
              [id_tup2a],                                # small tuple
              [id_tup2b,],                               # small tuple
-             [id_tup2c]
+             [id_tup2c],
+             [id_tup2d],
+             [id_tup2e],
+             [id_tup2f],
+             [id_tup2g],
+             [id_tup2h],
+             [id_tup2i],
+             [id_tup2j],
+             [id_tup2k],
            ]
+
+debug = True
 
 for i, id in enumerate(test_ids):
     print('\n=============================================')
     for align in [True,False]:
+        st_time = time.time()
         print('TEST (%d/%d) ID:  %s' % (i+1,len(test_ids),str(id)))
         print('ALIGN = %5s ==============================\n' % align)
         try:
@@ -50,8 +70,10 @@ for i, id in enumerate(test_ids):
             print('ERROR: %s' % str(e))
             sys.exit(0)
         else:
-            print('OK')
-            #info(data)
+            en_time = time.time()
+            info(data)
+            print('OK\t    NSpec: %4d  Time: %.6g sec' % \
+                  ((len(data) if align else len(data[0])),(en_time-st_time)))
         print('============================================\n\n')
 
 

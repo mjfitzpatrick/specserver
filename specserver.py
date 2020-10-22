@@ -5,11 +5,14 @@
 __authors__ = 'Mike Fitzpatrick <fitz@noao.edu>'
 __version__ = 'v1.0.0'
 
-try:
-    from ddtrace import patch_all
-    patch_all()
-except:
-    pass
+
+# Uncomment for DataDog stats
+#try:
+#    from ddtrace import patch_all
+#    patch_all()
+#except:
+#    pass
+
 
 #  Usage:
 #       specserver [-p <port> | --port=<port>]

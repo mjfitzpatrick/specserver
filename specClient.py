@@ -1430,17 +1430,15 @@ class specClient(object):
                 id_list = np.array(cnv_list)
 
         elif isinstance(id_list,int):
-            print('getSpec(): GOT AN INT')
             id_list = [ id_list ]
 
         elif isinstance(id_list,tuple):
-            print('getSpec(): GOT A TUPLE')
             id_list = [ id_list ]
 
         elif not (isinstance(id_list, list) or isinstance(id_list, np.ndarray)):
             id_list = np.array([id_list])
 
-        print('ty id_list: ' + str(type(id_list)))
+        if debug: print('ty id_list: ' + str(type(id_list)))
 
         # Initialize the payload.
         data = {'id_list' : id_list,
@@ -1483,6 +1481,7 @@ class specClient(object):
             print ('ty data: ' + str(type(_data)))
             print ('len data: ' + str(len(_data)))
             print ('shape data: ' + str(_data.shape))
+            print ('size data: ' + str(sys.getsizeof(_data)))
 
 
         if fmt.lower() == 'fits':

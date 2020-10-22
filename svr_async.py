@@ -269,7 +269,6 @@ async def getSpec(request):
     svc.debug = debug
     svc.verbose = verbose
 
-
     # From the service call we get a string which we'll need to map to
     # an array of identifiers valid for the service.
     ids = svc.expandIDList(id_list)
@@ -295,6 +294,11 @@ async def getSpec(request):
         fname = svc.dataPath(id, 'npy')
         data = svc.getData(str(fname))
 
+        if bands != 'all':
+            # Extract the subset of bands.
+            dbands = data[[c for c in list(data.dtype.names) if c in bands]]
+            data = rfn.repack_fields(dbands)
+
         if not align:
             f = data
         else:
@@ -310,10 +314,11 @@ async def getSpec(request):
             f['loglam'] = np.linspace(w0,w1,len(f))   # patch wavelength array
 
             if debug:
+                print(str(id))
                 print(fname)
-                print ('wmin,wmax = (%g,%g)  disp=%g' % (wmin,wmax,disp))
-                print ('w0,w1 = (%g,%g)  pad = (%d,%d)' % (w0,w1,lpad,rpad))
-                print ('len f = %d   len data = %d' % (len(f),len(data)))
+                print('wmin,wmax = (%g,%g)  disp=%g' % (wmin,wmax,disp))
+                print('w0,w1 = (%g,%g)  pad = (%d,%d)' % (w0,w1,lpad,rpad))
+                print('len f = %d   len data = %d' % (len(f),len(data)))
 
         if res is None:
             res = f
@@ -323,28 +328,16 @@ async def getSpec(request):
         ptime = ptime + (p1 - p0)
 
     if debug:
-        print('res type: ' + str(type(res)))
-        print('res shape: ' + str(res.shape))
+        print('res type: ' + str(type(res)) + ' shape: ' + str(res.shape))
 
-    tmp_file = NamedTemporaryFile(delete=True, dir='/tmp').name
-    np.save(tmp_file+'.npy', res, allow_pickle=False)
-    with open(tmp_file+'.npy', 'rb') as fd:
-        _bytes = fd.read()
-    os.unlink(tmp_file+'.npy')
-
-    if bands != 'all':
-        data = svc.getData(str(fname))
-        dbands = data[[c for c in list(data.dtype.names) if c in bands]]
-        dbands = rfn.repack_fields(dbands)
-
-        tmp_file = NamedTemporaryFile(delete=True, dir='/tmp').name
-        np.save(tmp_file+'.npy', dbands, allow_pickle=False)
-        with open(tmp_file+'.npy', 'rb') as fd:
-            _bytes = fd.read()
-        os.unlink(tmp_file+'.npy')
+    # Convert the array to bytes for return.
+    fd = BytesIO()
+    np.save(fd, res, allow_pickle=False)
+    _bytes = fd.getvalue()
 
     en_time = time.time()
-    logging.info ('getSpec time: %g  NSpec: %d' % (en_time-st_time,nspec))
+    logging.info ('getSpec time: %g  NSpec: %d  Bytes: %d' % \
+                  (en_time-st_time,nspec,len(_bytes)))
 
     return web.Response(body=_bytes)
 
