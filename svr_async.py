@@ -409,7 +409,7 @@ async def gridplot(request):
         logging.info ('gridPlot Params: ' + str(dict(params)))
 
     ids = map(int, id_list[1:-1].split(','))
-    svc = getSvc(context)()
+    svc = getSvc(context)
     imgs = []
     for p in ids:
         fname = svc.previewPath(p)
@@ -484,7 +484,7 @@ async def stackedImage(request):
 
     st_time = time.time()
 
-    svc = getSvc(context)()
+    svc = getSvc(context)
     ids = svc.expandIDList(id_list)
     w0, w1, nspec = _listSpan(svc, ids)
 
@@ -641,7 +641,7 @@ def getSvc(context):
     '''Return the servie sub-class based on the given context.
     '''
     try:
-        svc = Registry.services[context]()
+        svc = Registry.services[context]
     except Exception as e:
         logging.error ('getSvc(%s) ERROR: %s' % (context, str(e)))
         return None

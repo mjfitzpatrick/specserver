@@ -14,6 +14,7 @@ import logging
 import numpy as np
 from svc_base import Service
 from astropy.table import Table
+from io import BytesIO
 
 from dl import queryClient as qc
 
@@ -68,23 +69,25 @@ class sdssService(Service):
         base_path = self.fits_root if extn == 'fits' else self.cache_root
         for r in self.run2d:
             spath = base_path + \
-                  '%s/sdss/spectro/redux/%s/%d/spec-%04i-%05i-%04i.%s' % \
+                  '%s/sdss/spectro/redux/%s/spectra/%d/spec-%04i-%05i-%04i.%s' % \
                   (self.release,str(r),plate,plate,mjd,fiber,extn)
             if os.path.exists(spath):
-                if self.debug: print('findFile() time: ' + str(time.time()-st_time))
+                if self.debug: print('findFile() time: ' + \
+                                     str(time.time()-st_time))
                 return(spath)
 
         # FALLTHRU
         spath = base_path + \
-                  '%s/*/spectro/redux/*/%d/spec-%04i-%05i-%04i.%s' % \
+                  '%s/*/spectro/redux/*/spectra/%d/spec-%04i-%05i-%04i.%s' % \
                   (self.release,plate,plate,mjd,fiber,extn)
         files = glob.glob(spath)
         for f in files:
             if os.path.exists(f):
-                print('FINDFILE() time: ' + str(time.time()-st_time))
+                if self.debug: print('findFile() time: ' + \
+                                     str(time.time()-st_time))
                 return(f)
 
-        print('FINDFILE() time: ' + str(time.time()-st_time))
+        if self.debug: print('findFile() time: ' + str(time.time()-st_time))
         return None
 
     def expandID (self, plate, mjd, fiber, run2d):
@@ -217,7 +220,7 @@ class sdssService(Service):
         if self.debug:
             print('EXPAND ids = ' + str(ids)[:128])
             print('EXPAND len(ids) = ' + str(len(ids)))
-            print ('EXPAND time: ' + str(time.time() - st_time))
+            print('EXPAND time: ' + str(time.time() - st_time))
         return ids
 
     def getData(self, fname):
@@ -229,7 +232,7 @@ class sdssService(Service):
             data = Table.read(fname, hdu=1).as_array()
             retval = BytesIO()
             np.save(retval, data, allow_pickle=False)
-            return np.load(retval, allow_pickle=False)
+            return np.load(BytesIO(retval.getvalue()), allow_pickle=False)
         else:
             raise Exception('getdata(): Unknown file extension')
 
@@ -244,7 +247,7 @@ class sdssService(Service):
         base_path = self.fits_root if extn == 'fits' else self.cache_root
         base_path = base_path + \
                         '%s/%s/spectro/redux/' % (self.release, survey)
-        path = base_path + ('%s/%04i/' % (run2d, plate))
+        path = base_path + ('%s/specrra/%04i/' % (run2d, plate))
         fname = path + 'spec-%04i-%05i-%04i.%s' %  (plate,mjd,fiber,extn)
         return fname
 
