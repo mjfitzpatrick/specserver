@@ -66,7 +66,6 @@ import socket
 import json
 from time import gmtime
 from time import strftime
-#from urllib.parse import urlencode          # Python 3
 import numpy as np
 import pandas as pd
 from io import BytesIO
@@ -82,8 +81,12 @@ warnings.simplefilter('ignore', AstropyWarning)
 import logging
 logging.getLogger("specutils").setLevel(logging.CRITICAL)
 from specutils import Spectrum1D
+from specutils import SpectrumCollection
 
 from astropy import units as u
+from astropy.nddata import StdDevUncertainty
+from astropy.nddata import InverseVariance
+from astropy.table import Table
 from matplotlib import pyplot as plt      # visualization libs
 
 try:
@@ -181,43 +184,43 @@ class dlSpecError(Exception):
 # SET_SVC_URL -- Set the ServiceURL to call.
 #
 def set_svc_url(svc_url):
-    return spc_client.set_svc_url(svc_url.strip('/'))
+    return sp_client.set_svc_url(svc_url.strip('/'))
 
 # --------------------------------------------------------------------
 # GET_SVC_URL -- Get the ServiceURL to call.
 #
 def get_svc_url():
-    return spc_client.get_svc_url()
+    return sp_client.get_svc_url()
 
 # --------------------------------------------------------------------
 # SET_PROFILE -- Set the service profile to use.
 #
 def set_profile(profile):
-    return spc_client.set_profile(profile)
+    return sp_client.set_profile(profile)
 
 # --------------------------------------------------------------------
 # GET_PROFILE -- Get the service profile to use.
 #
 def get_profile():
-    return spc_client.get_profile()
+    return sp_client.get_profile()
 
 # --------------------------------------------------------------------
 # SET_CONTEXT -- Set the dataset context to use.
 #
 def set_context(context):
-    return spc_client.set_context(context)
+    return sp_client.set_context(context)
 
 # --------------------------------------------------------------------
 # GET_CONTEXT -- Get the dataset context to use.
 #
 def get_context():
-    return spc_client.get_profile()
+    return sp_client.get_profile()
 
 # --------------------------------------------------------------------
 # ISALIVE -- Ping the service to see if it responds.
 #
 def isAlive(svc_url=DEF_SERVICE_URL, timeout=5):
-    return spc_client.isAlive(svc_url=svc_url, timeout=timeout)
+    return sp_client.isAlive(svc_url=svc_url, timeout=timeout)
 
 
 # --------------------------------------------------------------------
@@ -227,12 +230,12 @@ def isAlive(svc_url=DEF_SERVICE_URL, timeout=5):
 def list_profiles(optval, token=None, profile=None, fmt='text'):
     if optval is not None and len(optval.split('.')) >= 4:
         # optval looks like a token
-        return spc_client._list_profiles(token=def_token(optval),
-                                         profile=profile, fmt=format)
+        return sp_client._list_profiles(token=def_token(optval),
+                                        profile=profile, fmt=format)
     else:
         # optval looks like a profile name
-        return spc_client._list_profiles(token=def_token(token),
-                                         profile=optval, fmt=format)
+        return sp_client._list_profiles(token=def_token(token),
+                                        profile=optval, fmt=format)
 
 @multimethod('spc',0,False)
 def list_profiles(token=None, profile=None, fmt='text'):
@@ -271,8 +274,8 @@ def list_profiles(token=None, profile=None, fmt='text'):
         profiles = specClient.list_profiles()
         profiles = specClient.list_profiles(token)
     '''
-    return spc_client._list_profiles(token=def_token(token),
-                                     profile=profile, fmt=fmt)
+    return sp_client._list_profiles(token=def_token(token),
+                                    profile=profile, fmt=fmt)
 
 
 # --------------------------------------------------------------------
@@ -282,12 +285,12 @@ def list_profiles(token=None, profile=None, fmt='text'):
 def list_contexts(optval, token=None, contexts=None, fmt='text'):
     if optval is not None and len(optval.split('.')) >= 4:
         # optval looks like a token
-        return spc_client._list_contexts(token=def_token(optval),
-                                         contexts=contexts, fmt=fmt)
+        return sp_client._list_contexts(token=def_token(optval),
+                                        contexts=contexts, fmt=fmt)
     else:
         # optval looks like a contexts name
-        return spc_client._list_contexts(token=def_token(token),
-                                         contexts=optval, fmt=fmt)
+        return sp_client._list_contexts(token=def_token(token),
+                                        contexts=optval, fmt=fmt)
 
 @multimethod('spc',0,False)
 def list_contexts(token=None, context=None, fmt='text'):
@@ -326,8 +329,8 @@ def list_contexts(token=None, context=None, fmt='text'):
         contexts = specClient.list_contexts()
         contexts = specClient.list_contexts(token)
     '''
-    return spc_client._list_contexts(token=def_token(token),
-                                     context=context, fmt=fmt)
+    return sp_client._list_contexts(token=def_token(token),
+                                    context=context, fmt=fmt)
 
 
 # --------------------------------------------------------------------
@@ -336,7 +339,7 @@ def list_contexts(token=None, context=None, fmt='text'):
 def catalogs(context='default', profile='default', fmt='text'):
     '''List available catalogs for a given dataset context
     '''
-    return spc_client.catalogs(context=context, profile=profile, fmt=fmt)
+    return sp_client.catalogs(context=context, profile=profile, fmt=fmt)
 
 
 # --------------------------------------------------------------------
@@ -345,7 +348,7 @@ def catalogs(context='default', profile='default', fmt='text'):
 def to_Spectrum1D(npy_data):
     '''Utility method to convert a Numpy array to Spectrum1D
     '''
-    return spc_client.to_Spectrum1D(npy_data)
+    return sp_client.to_Spectrum1D(npy_data)
 
 
 # --------------------------------------------------------------------
@@ -354,7 +357,16 @@ def to_Spectrum1D(npy_data):
 def to_pandas(npy_data):
     '''Utility method to convert a Numpy array to a Pandas DataFrame
     '''
-    return spc_client.to_pandas(npy_data)
+    return sp_client.to_pandas(npy_data)
+
+
+# --------------------------------------------------------------------
+# TO_TABLE -- Utility method to convert a Numpy array to an Astropy Table
+#
+def to_table(npy_data):
+    '''Utility method to convert a Numpy array to an Astropy Table object.
+    '''
+    return sp_client.to_table(npy_data)
 
 
 
@@ -370,22 +382,22 @@ def to_pandas(npy_data):
 @multimethod('spc',3,False)
 def query(ra, dec, size, constraint=None, out=None,
           context=None, profile=None, **kw):
-    return spc_client._query(ra=ra, dec=dec, size=size,
-                             pos=None,
-                             region=None,
-                             constraint=constraint,
-                             out=out,
-                             context=context, profile=profile, **kw)
+    return sp_client._query(ra=ra, dec=dec, size=size,
+                            pos=None,
+                            region=None,
+                            constraint=constraint,
+                            out=out,
+                            context=context, profile=profile, **kw)
 
 @multimethod('spc',2,False)
 def query(pos, size, constraint=None, out=None,
           context=None, profile=None, **kw):
-    return spc_client._query(ra=None, dec=None, size=size,
-                             pos=pos,
-                             region=None,
-                             constraint=constraint,
-                             out=out,
-                             context=context, profile=profile, **kw)
+    return sp_client._query(ra=None, dec=None, size=size,
+                            pos=pos,
+                            region=None,
+                            constraint=constraint,
+                            out=out,
+                            context=context, profile=profile, **kw)
 
 @multimethod('spc',1,False)
 def query(region, constraint=None, out=None,
@@ -473,12 +485,12 @@ def query(region, constraint=None, out=None,
         .. code-block:: python
             id_list = spec.query (0.125, 12.123, 0.1)
     '''
-    return spc_client._query(ra=None, dec=None, size=None,
-                             pos=None,
-                             region=region,
-                             constraint=constraint,
-                             out=out,
-                             context=context, profile=profile, **kw)
+    return sp_client._query(ra=None, dec=None, size=None,
+                            pos=None,
+                            region=region,
+                            constraint=constraint,
+                            out=out,
+                            context=context, profile=profile, **kw)
 
 
 # --------------------------------------------------------------------
@@ -544,8 +556,9 @@ def getSpec(id_list, fmt='numpy', out=None, align=False, cutout=None,
             .... 'spec' is an array of NumPy objects that may be
                  different sizes
     '''
-    return spc_client.getSpec(id_list=id_list, fmt=fmt, out=out, align=align,
-                cutout=cutout, context=context, profile=profile, **kw)
+    return sp_client.getSpec(id_list=id_list, fmt=fmt, out=out,
+                             align=align, cutout=cutout,
+                             context=context, profile=profile, **kw)
 
 
 # --------------------------------------------------------------------
@@ -610,8 +623,8 @@ def plot(spec, context=None, profile=None, out=None, **kw):
             spec.plot (specID, context='sdss_dr16', out='vos://spec.png')
 
     '''
-    return spc_client.plot(spec, context=context, profile=profile,
-                           out=None, **kw)
+    return sp_client.plot(spec, context=context, profile=profile,
+                          out=None, **kw)
 
 
 # --------------------------------------------------------------------
@@ -697,7 +710,7 @@ def preview(spec, context=None, profile=None, **kw):
                     format='png', width=400, height=100, unconfined=True))
     '''
     pass
-    return spc_client.preview(spec, context=context, profile=profile, **kw)
+    return sp_client.preview(spec, context=context, profile=profile, **kw)
 
 
 # --------------------------------------------------------------------
@@ -753,8 +766,8 @@ def plotGrid(id_list, nx, ny, page=0, context=None, profile=None, **kw):
                 display(Image(data, format='png',
                         width=400, height=100, unconfined=True))
     '''
-    return spc_client.plotGrid(id_list, nx, ny, page=page,
-                 context=context, profile=profile, **kw)
+    return sp_client.plotGrid(id_list, nx, ny, page=page,
+                              context=context, profile=profile, **kw)
 
 
 # --------------------------------------------------------------------
@@ -798,8 +811,8 @@ def stackedImage(id_list, align=False, yflip=False,
 
     '''
     pass
-    return spc_client.stackedImage(id_list, align=align, yflip=yflip,
-                 context=context, profile=profile, **kw)
+    return sp_client.stackedImage(id_list, align=align, yflip=yflip,
+                                  context=context, profile=profile, **kw)
 
 
 
@@ -1101,8 +1114,18 @@ class specClient(object):
         '''
         lamb = 10**npy_data['loglam'] * u.AA 
         flux = npy_data['flux'] * 10**-17 * u.Unit('erg cm-2 s-1 AA-1')
+        mask = npy_data['flux'] != 0
+        flux_unit = u.Unit('erg cm-2 s-1 AA-1')
+        uncertainty = InverseVariance(npy_data['ivar'] / flux_unit**2)
 
-        return Spectrum1D(spectral_axis=lamb, flux=flux)
+        spec1d = Spectrum1D(spectral_axis=lamb, flux=flux,
+                            uncertainty=uncertainty, mask=mask)
+        spec1d.meta['sky'] = npy_data['sky']
+        spec1d.meta['model'] = npy_data['model']
+        spec1d.meta['ivar'] = npy_data['ivar']
+
+        return spec1d
+
 
 
     # --------------------------------------------------------------------
@@ -1112,6 +1135,15 @@ class specClient(object):
         '''Utility method to convert a Numpy array to a Pandas DataFrame
         '''
         return pd.DataFrame(data=npy_data, columns=npy_data.dtype.names)
+
+
+    # --------------------------------------------------------------------
+    # TO_TABLE -- Utility method to convert a Numpy array to an Astropy Table
+    #
+    def to_table(self, npy_data):
+        '''Utility method to convert a Numpy array to an Astropy Table object.
+        '''
+        return Table(data=npy_data, names=npy_data.dtype.names)
 
 
 
@@ -1438,6 +1470,10 @@ class specClient(object):
         elif not (isinstance(id_list, list) or isinstance(id_list, np.ndarray)):
             id_list = np.array([id_list])
 
+        # Force alignment for SpectrumCollection format.
+        if fmt.lower() == 'spectrumcollection':
+            align = True
+                    
         if debug: print('ty id_list: ' + str(type(id_list)))
 
         # Initialize the payload.
@@ -1473,9 +1509,13 @@ class specClient(object):
             for id in id_list:
                 data['id_list'] = id
                 resp = requests.post (url, data=data, headers=headers)
-                np_data = np.load(BytesIO(resp.content), allow_pickle=False)
-                _data.append(np_data)
-            _data = np.array(_data)
+                if fmt.lower() == 'fits':
+                    _data.append(resp.content)
+                else:
+                    np_data = np.load(BytesIO(resp.content), allow_pickle=False)
+                    _data.append(np_data)
+            if fmt.lower() != 'fits':
+                _data = np.array(_data)
 
         if debug:
             print ('ty data: ' + str(type(_data)))
@@ -1486,30 +1526,51 @@ class specClient(object):
 
         if fmt.lower() == 'fits':
             # Note: assumes a single file....FIXME
-            return _data
-        else:
-            #np_data = np.load(BytesIO(_data), allow_pickle=False)
-            if fmt.lower() == 'numpy':
-                return list(_data)
-            elif fmt == 'pandas':
-                np_data = []
-                for d in _data:
-                    np_data.append(pd.DataFrame(data=d, columns=d.dtype.names))
-                return np_data
-            elif fmt.lower() == 'spectrum1d':
-                # FIXME: column names are SDSS-specific??
-                np_data = []
-                for d in _data:
-                    lamb = 10**d['loglam'] * u.AA 
-                    flux = d['flux'] * 10**-17 * u.Unit('erg cm-2 s-1 AA-1')
-                    spec1d = Spectrum1D(spectral_axis=lamb, flux=flux)
-                    spec1d.meta['sky'] = d['sky']
-                    spec1d.meta['model'] = d['model']
-                    spec1d.meta['ivar'] = d['ivar']
-                    np_data.append(spec1d)
-                return np_data
+            if len(_data) == 1:
+                return _data[0]
             else:
-                raise Exception('Unknown return format')
+                return _data
+        else:
+            if debug:
+                print('len _data: ' + str(len(_data)))
+                print('typ _data: ' + str(type(_data)))
+            if fmt.lower()[:5] == 'numpy':
+                if len(_data) == 1:
+                    return _data[0]
+                else:
+                    return _data
+            elif fmt.lower()[:6] == 'pandas':
+                if len(_data) == 1:
+                    return self.to_pandas(_data[0])
+                else:
+                    pd_data = []
+                    for d in _data:
+                        pd_data.append(self.to_pandas(d))
+                    return pd_data
+            elif fmt.lower()[:6] == 'tables':
+                if len(_data) == 1:
+                    return self.to_table(_data[0])
+                else:
+                    tb_data = []
+                    for d in _data:
+                        tb_data.append(self.to_table(d))
+                    return tb_data
+            elif fmt.lower()[:8] == 'spectrum':
+                # FIXME: column names are SDSS-specific??
+                if len(_data) == 1:
+                    return self.to_Spectrum1D(_data[0])
+                else:
+                    sp_data = []
+                    for i in range(len(_data)):
+                        sp_data.append(self.to_Spectrum1D(_data[i]))
+
+                    # Convert to a SpectrumCollection object if requested.
+                    if fmt.lower() == 'spectrumcollection':
+                        return SpectrumCollection.from_spectra(sp_data)
+                    else:
+                        return sp_data
+            else:
+                raise Exception("Unknown return format '%s'" % fmt)
 
 
     # --------------------------------------------------------------------
@@ -1582,8 +1643,8 @@ class specClient(object):
            isinstance(spec, np.uint64) or \
            isinstance(spec, tuple) or \
            isinstance(spec, str):
-               dlist = spc_client.getSpec(spec, context=context,profile=profile)
-               data = dlist[0]
+               dlist = sp_client.getSpec(spec, context=context,profile=profile)
+               data = dlist
                wavelength = 10.0**data['loglam']
                flux = data['flux']
                model = data['model']
@@ -1912,7 +1973,7 @@ class specClient(object):
     @staticmethod
     def _plotSpec(wavelength, flux, model=None, sky=None, ivar=None,
                   rest_frame = True, z=0.0, xlim = None, ylim = None,
-                  title=None, out=None, **kw):
+                  title=None, xlabel=None, ylabel=None, out=None, **kw):
         """Plot a spectrum.
         
         Inputs:
@@ -1995,24 +2056,40 @@ class specClient(object):
     
         ax = fig.add_subplot(111)
         if 'flux' in bands:
-            ax.plot(wavelength, flux*(ivar > 0), label='Flux', **spec_args)
+            if ivar is None:
+                ax.plot(wavelength, flux, label='Flux', **spec_args)
+            else:
+                ax.plot(wavelength, flux*(ivar > 0), label='Flux', **spec_args)
         if 'model' in bands and model is not None:
-            ax.plot(wavelength, model*(ivar > 0), label='Model', **model_args)
-        if 'sky' in bands and sky is not None:
-            ax.plot(wavelength, sky*(ivar > 0), label='Sky', **sky_args)
+            if ivar is None:
+                ax.plot(wavelength, model, label='Model', **model_args)
+            else:
+                ax.plot(wavelength, model*(ivar > 0), label='Model',
+                        **model_args)
+        if 'sky' in bands and sky is not None and ivar is not None:
+            if ivar is None:
+                ax.plot(wavelength, sky, label='Sky', **model_args)
+            else:
+                ax.plot(wavelength, sky*(ivar > 0), label='Sky', **sky_args)
         if 'ivar' in bands and ivar is not None:
             ax.plot(wavelength, ivar*(ivar > 0), label='Ivar', **ivar_args)
     
         plt.xlim(xlim)
         plt.ylim(ylim)
         am_color = ('#00FF00' if dark else 'black')
-        if rest_frame:
-            plt.xlabel('Rest Wavelength ($\AA$)', color=am_color)
+        if ylabel is None:
+            if rest_frame:
+                plt.xlabel('Rest Wavelength ($\AA$)', color=am_color)
+            else:
+                plt.xlabel('Observed Wavelength ($\AA$)    z=%.3g' % z,
+                           color=am_color)
         else:
-            plt.xlabel('Observed Wavelength ($\AA$)    z=%.3g' % z,
+            plt.xlabel(xlabel, color=am_color)
+        if ylabel is None:
+            plt.ylabel('$F_{\lambda}$ ($10^{-17}~ergs~s^{-1}~cm^{-2}~\AA^{-1}$)',
                        color=am_color)
-        plt.ylabel('$F_{\lambda}$ ($10^{-17}~ergs~s^{-1}~cm^{-2}~\AA^{-1}$)',
-                  color=am_color)
+        else:
+            plt.ylabel(ylabel, color=am_color)
     
         if dark: ax.tick_params(color='cyan', labelcolor='yellow')
         if grid: plt.grid(color='gray', linestyle='dashdot', linewidth=0.5)
@@ -2153,19 +2230,19 @@ def getClient(context='default', profile='default'):
 
 
 # Get the default client object.
-spc_client = getClient(context='default', profile='default')
+sp_client = getClient(context='default', profile='default')
 
 
 # ##########################################
 #  Patch the docstrings for module functions
 # ##########################################
 
-set_svc_url.__doc__ = spc_client.set_svc_url.__doc__
-get_svc_url.__doc__ = spc_client.get_svc_url.__doc__
-set_profile.__doc__ = spc_client.set_profile.__doc__
-get_profile.__doc__ = spc_client.get_profile.__doc__
-set_context.__doc__ = spc_client.set_context.__doc__
-get_context.__doc__ = spc_client.get_context.__doc__
+set_svc_url.__doc__ = sp_client.set_svc_url.__doc__
+get_svc_url.__doc__ = sp_client.get_svc_url.__doc__
+set_profile.__doc__ = sp_client.set_profile.__doc__
+get_profile.__doc__ = sp_client.get_profile.__doc__
+set_context.__doc__ = sp_client.set_context.__doc__
+get_context.__doc__ = sp_client.get_context.__doc__
 
 
 # ####################################################################

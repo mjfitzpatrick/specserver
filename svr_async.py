@@ -168,11 +168,7 @@ def profiles(request):
             return web.Response(text=txt)
     else:
         raw = config['profiles'][profile].copy()
-        del raw['user']                 # delete secrets from the copy
-        del raw['password']
-        del raw['host']
-        del raw['dbport']
-        del raw['vosEndpoint']
+        del raw['vosEndpoint']                 # delete secrets from the copy
         del raw['vosRootDir']
         return web.Response(text=json.dumps(raw))
 
@@ -194,7 +190,7 @@ def contexts(request):
             return ",".join(context)
         elif fmt == 'text':
             txt = ''
-            for p in sorted(context):
+            for p in context:
                 conf = config['contexts'][p]
                 if conf['type'] in ['public','external']:
                     txt = txt + ("%16s   %s\n" % (p,str(conf['description'])))
@@ -215,23 +211,19 @@ def catalogs(request):
     profile = request.query['profile']
     fmt = request.query['format']
 
-    if context is None or context.lower() in ['default', '','none']:
-        catalogs = config['contexts'][context]['catalogs'].keys()
+    catalogs = config['contexts'][context]['catalogs'].keys()
 
-        if fmt == 'csv':
-            txt = 'catalog_name,description\n'
-            for p in sorted(catalogs):
-                cat = config['contexts'][context]['catalogs'][p]
-                txt = txt + ("%s,%s\n" % (p, cat))
-        elif fmt == 'text':
-            txt = "Catalogs for '%s' context:\n\n" % context
-            for p in sorted(catalogs):
-                cat = config['contexts'][context]['catalogs'][p]
-                txt = txt + ("%26s   %s\n" % (p, cat))
-        return web.Response(text=txt)
-    else:
-        raw = config[context]['catalogs'].copy()
-        return web.Response(text=json.dumps(raw))
+    if fmt == 'csv':
+        txt = 'catalog_name,description\n'
+        for p in sorted(catalogs):
+            cat = config['contexts'][context]['catalogs'][p]
+            txt = txt + ("%s,%s\n" % (p, cat))
+    elif fmt == 'text':
+        txt = "Catalogs used by '%s' context:\n\n" % context
+        for p in sorted(catalogs):
+            cat = config['contexts'][context]['catalogs'][p]
+            txt = txt + ("%30s   %s\n" % (p, cat))
+    return web.Response(text=txt)
 
 
 # =======================================
@@ -265,7 +257,7 @@ async def getSpec(request):
     st_time = time.time()
 
     # Instantiate the dataset service based on the context.
-    svc = getSvc(context)
+    svc = _getSvc(context)
     svc.debug = debug
     svc.verbose = verbose
 
@@ -291,8 +283,15 @@ async def getSpec(request):
     for id in ids:
         p0 = time.time()
         nspec = nspec + 1
-        fname = svc.dataPath(id, 'npy')
-        data = svc.getData(str(fname))
+        if fmt.lower() == 'fits':
+            fname = svc.dataPath(id, 'fits')
+            print('fmt=fits: ' + fname)
+            data = svc.readFile(str(fname))
+            print('fmt=fits: len = ' + str(len(data)))
+            return web.Response(body=data)
+        else:
+            fname = svc.dataPath(id, 'npy')
+            data = svc.getData(str(fname))
 
         if bands != 'all':
             # Extract the subset of bands.
@@ -311,7 +310,7 @@ async def getSpec(request):
             else:
                 f = np.pad(data, (lpad,rpad), mode='constant',
                            constant_values=0)
-            f['loglam'] = np.linspace(w0,w1,len(f))   # patch wavelength array
+                f['loglam'] = np.linspace(w0,w1,len(f)) # patch wavelength array
 
             if debug:
                 print(str(id))
@@ -320,13 +319,17 @@ async def getSpec(request):
                 print('w0,w1 = (%g,%g)  pad = (%d,%d)' % (w0,w1,lpad,rpad))
                 print('len f = %d   len data = %d' % (len(f),len(data)))
 
+        print ('res ty = ' + str(type(res)))
         if res is None:
+            print ('res initial')
             res = f
         else:
+            print ('res vstack')
             res = np.vstack((res,f))
         p1 = time.time()
         ptime = ptime + (p1 - p0)
 
+    print('res type: ' + str(type(res)) + ' shape: ' + str(res.shape))
     if debug:
         print('res type: ' + str(type(res)) + ' shape: ' + str(res.shape))
 
@@ -356,7 +359,7 @@ async def preview(request):
         print ('ERROR: ' + str(e))
 
     # Instantiate the dataset service based on the context parameter.
-    svc = getSvc(context)
+    svc = _getSvc(context)
     fname = svc.previewPath(spec_id)
     print ('preview fname: ' + fname)
 
@@ -409,7 +412,7 @@ async def gridplot(request):
         logging.info ('gridPlot Params: ' + str(dict(params)))
 
     ids = map(int, id_list[1:-1].split(','))
-    svc = getSvc(context)
+    svc = _getSvc(context)
     imgs = []
     for p in ids:
         fname = svc.previewPath(p)
@@ -443,7 +446,7 @@ async def listSpan(request):
         logging.error ('Param Error: ' + str(e))
         return web.Response(text='Param Error: ' + str(e))
 
-    svc = getSvc(context)
+    svc = _getSvc(context)
     ids = svc.expandIDList(id_list)
 
     st_time = time.time()
@@ -484,7 +487,7 @@ async def stackedImage(request):
 
     st_time = time.time()
 
-    svc = getSvc(context)
+    svc = _getSvc(context)
     ids = svc.expandIDList(id_list)
     w0, w1, nspec = _listSpan(svc, ids)
 
@@ -637,13 +640,13 @@ def _listSpan(svc, id_list):
         w1 = max(w1,data['loglam'][-1])
     return w0, w1, nids
 
-def getSvc(context):
+def _getSvc(context):
     '''Return the servie sub-class based on the given context.
     '''
     try:
         svc = Registry.services[context]
     except Exception as e:
-        logging.error ('getSvc(%s) ERROR: %s' % (context, str(e)))
+        logging.error ('_getSvc(%s) ERROR: %s' % (context, str(e)))
         return None
     else:
         return svc

@@ -31,6 +31,8 @@ sdss_run2d = {'dr16': [26, 103, 104, 'v5_13_0'],
               'dr8': [26, 103, 104]
              }
 
+DEF_QUERY_PROFILE = 'db01'
+
 
 # Base service class.
 class sdssService(Service):
@@ -44,6 +46,7 @@ class sdssService(Service):
         self.data_root = '%s/sdss/spectro/redux/' % release
 
         self.run2d = sdss_run2d[release]
+        self.query_profile = DEF_QUERY_PROFILE
 
         self.debug = False
         self.verbose = False
@@ -69,25 +72,27 @@ class sdssService(Service):
         base_path = self.fits_root if extn == 'fits' else self.cache_root
         for r in self.run2d:
             spath = base_path + \
-                  '%s/sdss/spectro/redux/%s/spectra/%d/spec-%04i-%05i-%04i.%s' % \
+                  '%s/sdss/spectro/redux/%s/spectra/%04i/spec-%04i-%05i-%04i.%s' % \
                   (self.release,str(r),plate,plate,mjd,fiber,extn)
+            print('RUN2D path: ' + spath)
             if os.path.exists(spath):
-                if self.debug: print('findFile() time: ' + \
+                if self.debug: print('findFile() time0: ' + \
                                      str(time.time()-st_time))
                 return(spath)
 
         # FALLTHRU
         spath = base_path + \
-                  '%s/*/spectro/redux/*/spectra/%d/spec-%04i-%05i-%04i.%s' % \
+                  '%s/*/spectro/redux/*/spectra/%04i/spec-%04i-%05i-%04i.%s' % \
                   (self.release,plate,plate,mjd,fiber,extn)
+        print('FALLTHRU path: ' + spath)
         files = glob.glob(spath)
         for f in files:
             if os.path.exists(f):
-                if self.debug: print('findFile() time: ' + \
+                if self.debug: print('findFile() time1: ' + \
                                      str(time.time()-st_time))
                 return(f)
 
-        if self.debug: print('findFile() time: ' + str(time.time()-st_time))
+        if self.debug: print('findFile() time2: ' + str(time.time()-st_time))
         return None
 
     def expandID (self, plate, mjd, fiber, run2d):
@@ -160,10 +165,14 @@ class sdssService(Service):
             if wr is not None:
                 w = w  + ('' if w == '' else ' AND ') + wr
 
+        #query = '''SELECT plate,mjd,fiberid,run2d,survey 
+        #           FROM sdss_%s.specobj WHERE %s''' % (self.release, w)
+        # DR16 will have the needed information, we cannot count on earlier
+        # releases having an available 'specobj' table.
         query = '''SELECT plate,mjd,fiberid,run2d,survey 
-                   FROM sdss_%s.specobj WHERE %s''' % (self.release, w)
+                   FROM sdss_dr16.specobj WHERE %s''' % w
 
-        res = qc.query(sql=query)
+        res = qc.query(sql=query, profile=self.query_profile)
         rows = res.split('\n')[1:-1]
         ids = []
         for row in rows:
@@ -186,9 +195,13 @@ class sdssService(Service):
         # (non-quoted) whitespace.  The result is an array of strings we
         # can map to identifiers.
         if self.debug: print('ID_LIST in: :' + str(id_list) + ':')
-        id_str = id_list[1:-1]  if id_list[0] == '[' else id_list
-        id_str = id_str.replace(' ','').replace(',(',' (')
-        id_str = id_str.replace("),",") ").replace(",("," (")
+        id_str = id_list[1:-1].strip()  if id_list[0] == '[' else id_list
+        if id_str.find('(') >= 0:
+            id_str = id_str.replace(' ','').replace(',(',' (')
+            id_str = id_str.replace("),",") ").replace(",("," (")
+        else:
+            id_str = id_str.replace('\n',' ').replace('  ',' ').replace(' ',',')
+            id_str = id_str.replace(' ','').replace(',,',',')
         split_char = ' ' if '(' in id_str else ','
         id_str = id_str.split(split_char)
         if self.debug: print('ID_STR: ' + str(id_str))
@@ -200,6 +213,7 @@ class sdssService(Service):
             # At least some identifiers are tuple strings.
             ids = []
             for s in id_str:
+                print('ID_STR s: ' + s)
                 if s[0] == '(':
                     v = eval(s)
                     if len(v) == 1:
@@ -227,8 +241,10 @@ class sdssService(Service):
         '''Return the data in the named file as a numpy array.
         '''
         if fname[-3:] == 'npy':
+            print('getData() reading npy')
             return np.load(str(fname))
         elif fname[-4:] == 'fits':
+            print('getData() reading FITS')
             data = Table.read(fname, hdu=1).as_array()
             retval = BytesIO()
             np.save(retval, data, allow_pickle=False)
@@ -247,7 +263,7 @@ class sdssService(Service):
         base_path = self.fits_root if extn == 'fits' else self.cache_root
         base_path = base_path + \
                         '%s/%s/spectro/redux/' % (self.release, survey)
-        path = base_path + ('%s/specrra/%04i/' % (run2d, plate))
+        path = base_path + ('%s/spectra/%04i/' % (run2d, plate))
         fname = path + 'spec-%04i-%05i-%04i.%s' %  (plate,mjd,fiber,extn)
         return fname
 
@@ -299,6 +315,7 @@ class sdssService(Service):
 
         # Lastly, try to find a FITS file before giving up.
         if fname is None:
+            print('TRY FITS:  %s,%s,%s\n' % (str(plate),str(mjd),str(fiber)))
             fname = self.findFile(plate,mjd,fiber,'fits')
             if fname is None:
                 raise Exception('File not found: ')
