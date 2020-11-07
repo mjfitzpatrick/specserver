@@ -905,7 +905,12 @@ class specClient(object):
             from dl import specClient
             profile = specClient.client.set_profile("dev")
         '''
-        self.svc_profile = spcToString(profile)
+        url = self.svc_url + '/validate?what=profile&value=%s' % profile
+        if spcToString(self.curl_get(url)) == 'OK':
+            self.svc_profile = spcToString(profile)
+            return 'OK'
+        else:
+            raise Exception('Invalid profile "%s"' % profile)
         return 'OK'
 
     def get_profile(self):
@@ -948,8 +953,12 @@ class specClient(object):
             from dl import specClient
             context = specClient.client.set_context("dev")
         '''
-        self.svc_context = spcToString(context)
-        return 'OK'
+        url = self.svc_url + '/validate?what=context&value=%s' % context
+        if spcToString(self.curl_get(url)) == 'OK':
+            self.svc_context = spcToString(context)
+            return 'OK'
+        else:
+            raise Exception('Invalid context "%s"' % context)
 
     def get_context(self):
         '''Get the requested dataset context.

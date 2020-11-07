@@ -226,6 +226,29 @@ def catalogs(request):
     return web.Response(text=txt)
 
 
+# VALIDATE -- Validate a client parameter.
+#
+@routes.get('/spec/validate')
+def validate(request):
+    '''Validate a client parameter.
+    '''
+    # Process the service parameters.
+    what = request.query['what']	# what to validate (context|profile)
+    value = request.query['value']	# value to validate
+
+    if what == 'context':
+        resp = 'OK' if value in config['contexts'].keys() else 'Error'
+    elif what == 'profile':
+        resp = 'OK' if value in config['profiles'].keys() else 'Error'
+    else:
+        resp = 'Error: unknown validation "%s"' % what
+
+    print('p = ' + str(config['profiles'].keys()))
+    print('c = ' + str(config['contexts'].keys()))
+    print('what=%s  val=%s  --> %s' % (what, value, resp))
+    return web.Response(text=resp)
+
+
 # =======================================
 # Data Service Endpoints
 # =======================================
