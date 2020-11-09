@@ -1291,7 +1291,7 @@ class specClient(object):
         if context == 'default' or context.startswith('sdss'):
             fields = kw['fields'] if 'fields' in kw else 'specobjid'
             if fields == 'tuple':
-                #fields = 'plate,mjd,fiberid,run2d'
+                fields = 'plate,mjd,fiberid,run2d'
                 raise dlSpecError('Error: "tuple" not yet supported')
             if fields.find(',') > 0:
                 raise dlSpecError('Error: multiple fields not yet supported')
