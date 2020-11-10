@@ -4,7 +4,7 @@
 #
 
 __authors__ = 'Mike Fitzpatrick <fitz@noao.edu>'
-__version__ = 'v1.0.0'
+__version__ = 'v1.1.0'
 
 
 '''
@@ -22,13 +22,13 @@ __version__ = 'v1.0.0'
 
                set_context  (context)
          ctx = get_context  ()
-      ctxs = list_contexts  (optval, token=None, contexts=None, fmt='text')
-      ctxs = list_contexts  (token=None, contexts=None, fmt='text')
+      ctxs = list_contexts  (context, fmt='text')
+      ctxs = list_contexts  (contexts=None, fmt='text')
 
                set_profile  (profile)
         prof = get_profile  ()
-     profs = list_profiles  (optval, token=None, profile=None, fmt='text')
-     profs = list_profiles  (token=None, profile=None, fmt='text')
+     profs = list_profiles  (profile, fmt='text')
+     profs = list_profiles  (profile=None, fmt='text')
 
        catalogs = catalogs  (context='default', profile='default')
 
@@ -227,36 +227,26 @@ def isAlive(svc_url=DEF_SERVICE_URL, timeout=5):
 # LIST_PROFILES -- List the available service profiles.
 #
 @multimethod('spc',1,False)
-def list_profiles(optval, token=None, profile=None, fmt='text'):
-    if optval is not None and len(optval.split('.')) >= 4:
-        # optval looks like a token
-        return sp_client._list_profiles(token=def_token(optval),
-                                        profile=profile, fmt=format)
-    else:
-        # optval looks like a profile name
-        return sp_client._list_profiles(token=def_token(token),
-                                        profile=optval, fmt=format)
+def list_profiles(profile, fmt='text'):
+    return sp_client._list_profiles(profile=profile, fmt=fmt)
 
 @multimethod('spc',0,False)
-def list_profiles(token=None, profile=None, fmt='text'):
-    '''Retrieve the profiles supported by the spectro data  service.
+def list_profiles(profile=None, fmt='text'):
+    '''Retrieve the profiles supported by the spectro data service.
 
     Usage:
-        list_profiles (token=None, profile=None, fmt='text')
+        list_profiles ([profile], fmt='text')
 
     MultiMethod Usage:  
     ------------------
-            specClient.list_profiles (token)
+            specClient.list_profiles (profile)
             specClient.list_profiles ()
 
     Parameters
     ----------
-    token : str
-        Authentication token (see function :func:`authClient.login()`)
-
     profile : str
-        A specific profile configuration to list.  If None, a list of
-        profiles available to the given auth token is returned.
+        A specific profile configuration to list. If None, a list of
+        available profiles is returned.
 
     format : str
         Result format: One of 'text' or 'json'
@@ -271,47 +261,36 @@ def list_profiles(token=None, profile=None, fmt='text'):
     -------
     .. code-block:: python
 
+        profiles = specClient.list_profiles(profile)
         profiles = specClient.list_profiles()
-        profiles = specClient.list_profiles(token)
     '''
-    return sp_client._list_profiles(token=def_token(token),
-                                    profile=profile, fmt=fmt)
+    return sp_client._list_profiles(profile=profile, fmt=fmt)
 
 
 # --------------------------------------------------------------------
 # LIST_CONTEXTS -- List the available dataset contexts.
 #
 @multimethod('spc',1,False)
-def list_contexts(optval, token=None, contexts=None, fmt='text'):
-    if optval is not None and len(optval.split('.')) >= 4:
-        # optval looks like a token
-        return sp_client._list_contexts(token=def_token(optval),
-                                        contexts=contexts, fmt=fmt)
-    else:
-        # optval looks like a contexts name
-        return sp_client._list_contexts(token=def_token(token),
-                                        contexts=optval, fmt=fmt)
+def list_contexts(context, fmt='text'):
+    return sp_client._list_contexts(contexts=context, fmt=fmt)
 
 @multimethod('spc',0,False)
-def list_contexts(token=None, context=None, fmt='text'):
+def list_contexts(context=None, fmt='text'):
     '''Retrieve the contexts supported by the spectro data service.
 
     Usage:
-        list_contexts (token=None, context=context, fmt='text')
+        list_contexts ([context], fmt='text')
 
     MultiMethod Usage:  
     ------------------
-            specClient.list_contexts (token)
+            specClient.list_contexts (context)
             specClient.list_contexts ()
 
     Parameters
     ----------
-    token : str
-        Authentication token (see function :func:`authClient.login()`)
-
     contexts : str
         A specific contexts configuration to list.  If None, a list of
-        contexts available to the given auth token is returned.
+        available contexts is returned.
 
     format : str
         Result format: One of 'text' or 'json'
@@ -326,11 +305,10 @@ def list_contexts(token=None, context=None, fmt='text'):
     -------
     .. code-block:: python
 
+        contexts = specClient.list_contexts(context)
         contexts = specClient.list_contexts()
-        contexts = specClient.list_contexts(token)
     '''
-    return sp_client._list_contexts(token=def_token(token),
-                                    context=context, fmt=fmt)
+    return sp_client._list_contexts(context=context, fmt=fmt)
 
 
 # --------------------------------------------------------------------
@@ -782,7 +760,7 @@ def stackedImage(id_list, align=False, yflip=False,
     Parameters
     ----------
     id_list : list object 
-        Secure token obtained via :func:`authClient.login()`
+        List of spectrum identifiers.
 
     context : str 
         Dataset context.
@@ -834,7 +812,7 @@ class specClient(object):
         self.sm_svc_url = SM_SERVICE_URL        # Storage Manager service URL
         self.svc_profile = profile              # service profile
         self.svc_context = context              # dataset context
-        self.auth_token = None                  # default auth token
+        self.auth_token = def_token(None)       # default auth token (not used)
 
         self.hostip = THIS_IP
         self.hostname = THIS_HOST
@@ -1023,29 +1001,21 @@ class specClient(object):
     ###################################################
 
     @multimethod('_spc',1,True)
-    def list_profiles(self, optval, token=None, profile=None, fmt='text'):
-        '''Usage:  specClient.client.list_profiles (token, ...)
+    def list_profiles(self, profile, fmt='text'):
+        '''Usage:  specClient.client.list_profiles (profile, ...)
         '''
-        if optval is not None and len(optval.split('.')) >= 4:
-            # optval looks like a token
-            return self._list_profiles (token=def_token(optval),
-                                        profile=profile, fmt=format)
-        else:
-            # optval looks like a token
-            return self._list_profiles (token=def_token(token), profile=optval,
-                                        fmt=fmt)
+        return self._list_profiles (profile=profile, fmt=fmt)
 
     @multimethod('_spc',0,True)
-    def list_profiles(self, token=None, profile=None, fmt='text'):
+    def list_profiles(self, profile=None, fmt='text'):
         '''Usage:  specClient.client.list_profiles (...)
         '''
-        return self._list_profiles(token=def_token(token), profile=profile,
-                             fmt=fmt)
+        return self._list_profiles(profile=profile, fmt=fmt)
 
-    def _list_profiles(self, token=None, profile=None, fmt='text'):
+    def _list_profiles(self, profile=None, fmt='text'):
         '''Implementation of the list_profiles() method.
         '''
-        headers = self.getHeaders (token)
+        headers = self.getHeaders (def_token(None))
 
         svc_url = '%s/profiles?' % self.svc_url
         svc_url += "profile=%s&" % profile
@@ -1061,29 +1031,21 @@ class specClient(object):
 
 
     @multimethod('_spc',1,True)
-    def list_contexts(self, optval, token=None, context=None, fmt='text'):
-        '''Usage:  specClient.client.list_contexts (token, ...)
+    def list_contexts(self, context, fmt='text'):
+        '''Usage:  specClient.client.list_contexts (context, ...)
         '''
-        if optval is not None and len(optval.split('.')) >= 4:
-            # optval looks like a token
-            return self._list_contexts (token=def_token(optval),
-                                        context=context, fmt=fmt)
-        else:
-            # optval looks like a token
-            return self._list_contexts (token=def_token(token), context=optval,
-                                        fmt=fmt)
+        return self._list_contexts (context=context, fmt=fmt)
 
     @multimethod('_spc',0,True)
-    def list_contexts(self, token=None, context=None, fmt='text'):
+    def list_contexts(self, context=None, fmt='text'):
         '''Usage:  specClient.client.list_contexts (...)
         '''
-        return self._list_contexts(token=def_token(token), context=context,
-                             fmt=fmt)
+        return self._list_contexts(context=context, fmt=fmt)
 
-    def _list_contexts(self, token=None, context=None, fmt='text'):
+    def _list_contexts(self, context=None, fmt='text'):
         '''Implementation of the list_contexts() method.
         '''
-        headers = self.getHeaders (token)
+        headers = self.getHeaders (def_token(None))
 
         svc_url = '%s/contexts?' % self.svc_url
         svc_url += "context=%s&" % context
@@ -1314,7 +1276,7 @@ class specClient(object):
                    'X-DL-ClientVersion': __version__,
                    'X-DL-OriginIP': self.hostip,
                    'X-DL-OriginHost': self.hostname,
-                   'X-DL-AuthToken': def_token(None)}  # application/x-sql
+                   'X-DL-AuthToken': token}
 
         # Build the query URL string.
         base_url = '%s/query?' % self.qm_svc_url
@@ -1431,7 +1393,7 @@ class specClient(object):
         if profile in [None, '']: profile = self.svc_profile
 
         # Process optional parameters.
-        cutout = kw['cutout'] if 'cutout' in kw else self.auth_token
+        cutout = kw['cutout'] if 'cutout' in kw else ''
         bands = kw['bands'] if 'bands' in kw else 'all'
         token = kw['token'] if 'token' in kw else self.auth_token
         verbose = kw['verbose'] if 'verbose' in kw else False
@@ -1442,7 +1404,7 @@ class specClient(object):
                    'X-DL-ClientVersion': __version__,
                    'X-DL-OriginIP': self.hostip,
                    'X-DL-OriginHost': self.hostname,
-                   'X-DL-AuthToken': def_token(None)}  # application/x-sql
+                   'X-DL-AuthToken': def_token(None)}
 
         if debug:
             print('getSpec(): in ty id_list = ' + str(type(id_list)))
@@ -1846,7 +1808,7 @@ class specClient(object):
                    'X-DL-ClientVersion': __version__,
                    'X-DL-OriginIP': self.hostip,
                    'X-DL-OriginHost': self.hostname,
-                   'X-DL-AuthToken': def_token(None)}  # application/x-sql
+                   'X-DL-AuthToken': token}
 
         # Build the query URL string.
         url = '%s/plotGrid' % self.svc_url
@@ -1893,7 +1855,7 @@ class specClient(object):
         Parameters
         ----------
         id_list : list object 
-            Secure token obtained via :func:`authClient.login()`
+            List of spectrum identifiers.
     
         context : str 
             Dataset context.
@@ -1945,7 +1907,7 @@ class specClient(object):
                    'X-DL-ClientVersion': __version__,
                    'X-DL-OriginIP': self.hostip,
                    'X-DL-OriginHost': self.hostname,
-                   'X-DL-AuthToken': def_token(None)}  # application/x-sql
+                   'X-DL-AuthToken': token}
 
         # Build the query URL string.
         url = '%s/stackedImage' % self.svc_url
@@ -2181,7 +2143,7 @@ class specClient(object):
                 'X-DL-OriginIP': self.hostip,
                 'X-DL-OriginHost': self.hostname,
                 'X-DL-User': user,
-                'X-DL-AuthToken': tok}                  # application/x-sql
+                'X-DL-AuthToken': tok}
         return hdrs
 
     def getFromURL(self, svc_url, path, token):
