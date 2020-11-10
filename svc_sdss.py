@@ -82,7 +82,7 @@ class sdssService(Service):
 
         # FALLTHRU
         spath = base_path + \
-                  '%s/*/spectro/redux/*/spectra/%04i/spec-%04i-%05i-%04i.%s' % \
+                  '%s/*/spectro/redux/*/spectra/full/%04i/spec-%04i-%05i-%04i.%s' % \
                   (self.release,plate,plate,mjd,fiber,extn)
         print('FALLTHRU path: ' + spath)
         files = glob.glob(spath)
