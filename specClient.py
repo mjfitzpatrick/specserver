@@ -215,7 +215,7 @@ def set_context(context):
 # GET_CONTEXT -- Get the dataset context to use.
 #
 def get_context():
-    return sp_client.get_profile()
+    return sp_client.get_context()
 
 # --------------------------------------------------------------------
 # ISALIVE -- Ping the service to see if it responds.
