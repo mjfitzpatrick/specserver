@@ -515,7 +515,7 @@ async def stackedImage(request):
         rpad = int(np.around(max((w1 - wmax) / disp, 0.0)))
 
         if lpad == 0 and rpad == 0:
-            f = data
+            f = data['flux']
         else:
             f = np.pad(data['flux'], (lpad,rpad), mode='constant',
                        constant_values=0)
