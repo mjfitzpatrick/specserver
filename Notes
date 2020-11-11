@@ -1,8 +1,18 @@
 
 
-Spectroscopic Data Service
+                        Spectroscopic Data Service
 
-    This interface ......
+
+    The spectroscopic data service is meant to provide a high-throughput
+data query and access interface for spectral data.  The initial release 
+focuses on SDSS DR8 thru DR16 and will be expanded to include future 
+spectral surveys such as DESI.  
+    Performance can be up to 100X faster than similar interfaces for SDSS
+data, but is variable depending on the level of processing requested and 
+the specific data release.  The SDSS DR16 data are pre-processed to a 
+directory of saved 'numpy' arrays that constitute the core FITS BINTABLE
+of the data release, however on-the-fly extraction for earlier releases 
+makes all FITS data accessible.
 
 
 Client Interface
@@ -16,15 +26,15 @@ Client Interface
 
                set_context  (context)
          ctx = get_context  ()
+      ctxs = list_contexts  (context, fmt='text')
+      ctxs = list_contexts  (context=None, fmt='text')
 
                set_profile  (profile)
         prof = get_profile  ()
+     profs = list_profiles  (profile, fmt='text')
+     profs = list_profiles  (profile=None, fmt='text')
 
-     profs = list_profiles  (optval, token=None, profile=None, fmt='text')
-     profs = list_profiles  (token=None, profile=None, fmt='text')
-
-      ctxs = list_contexts  (name=None, fmt=None, profile=None)
-
+       catalogs = catalogs  (context='default', profile='default')
 
     Query Interface
     ---------------
@@ -254,7 +264,7 @@ Client Interface
            status = prospect  (data, context=None, profile=None, **kw)
 
                                 Utility wrapper to launch the interactive
-                                PROSPECT tool.
+                                PROSPECT tool. [Not Yet Implemented]
 
                                 kw parameters:
                                     TBD
@@ -320,6 +330,12 @@ Client Interface
                 display(Image(spec.stackedImage(id_list, fmt='png'),
                         format='png', unconfined=True))
 
+    Utility Methods
+    ---------------
+            df = to_pandas  (npy_data)      # convert to Pandas DataFram
+    spec1d = to_Spectrum1D  (npy_data)      # convert to specutils Spectrum1D
+            tab = to_Table  (npy_data)      # convert to Astropy Table
+
 
 
 Service Endpoints
@@ -328,12 +344,15 @@ Service Endpoints
     /                   GET     isAlive() or ping()
     /profiles           GET     Return service profiles
     /contexts           GET     Return dataset contexts
+    /catalogs           GET     Return context catalogs
 
     /getSpec            POST    Get spectra for given ID list
     /preview            POST    Get preview plots for given ID list
     /gridPlot           POST    Get grid of preview plots for given ID list
     /stackedImage       POST    Get stacked image of given ID list
+    /listSpan           POST    Get wavelength limits of array of IDs
 
+    /validate           GET     Validate a context/profile value w/ server
     /available          GET     Service availability
     /shutdown           GET     Shutdown the service
     /debug              GET     Toggle debug flag
