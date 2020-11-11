@@ -14586,7 +14586,7 @@ div#notebook {
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Michael Fitzpatrick &lt;fitz@noao.edu&gt;&#39;</span>
 <span class="n">__version__</span> <span class="o">=</span> <span class="s1">&#39;20201103&#39;</span>    <span class="c1"># yyyymmdd; version datestamp of this notebook</span>
 <span class="n">__datasets__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sdss_dr8&#39;</span><span class="p">,</span><span class="s1">&#39;sdss_dr9&#39;</span><span class="p">,</span><span class="s1">&#39;sdss_dr10&#39;</span><span class="p">,</span><span class="s1">&#39;sdss_dr11&#39;</span><span class="p">,</span><span class="s1">&#39;sdss_dr12&#39;</span><span class="p">,</span> <span class="s1">&#39;sdss_dr13&#39;</span><span class="p">,</span><span class="s1">&#39;sdss_dr14&#39;</span><span class="p">,</span><span class="s1">&#39;sdss_dr15&#39;</span><span class="p">,</span><span class="s1">&#39;sdss_dr16&#39;</span><span class="p">]</span>
-<span class="n">__keywords__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;HowTo&#39;</span><span class="p">,</span><span class="s1">&#39;spectra&#39;</span><span class="p">,</span><span class="s1">&#39;query&#39;</span><span class="p">,</span><span class="s1">&#39;vospace&#39;</span><span class="p">,</span><span class="s1">&#39;mydb&#39;</span><span class="p">,</span><span class="s1">&#39;SDSS&#39;</span><span class="p">]</span>
+<span class="n">__keywords__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;HowTo&#39;</span><span class="p">,</span><span class="s1">&#39;spectra&#39;</span><span class="p">,</span><span class="s1">&#39;query&#39;</span><span class="p">,</span><span class="s1">&#39;vospace&#39;</span><span class="p">,</span><span class="s1">&#39;SDSS&#39;</span><span class="p">]</span>
 </pre></div>
 
     </div>
@@ -14719,7 +14719,7 @@ UTILITY METHODS:
 <ul>
 <li><p>Data Lab concept paper: Fitzpatrick et al., "The NOAO Data Laboratory: a conceptual overview", SPIE, 9149, 2014, <a href="http://dx.doi.org/10.1117/12.2057445">http://dx.doi.org/10.1117/12.2057445</a></p>
 </li>
-<li><p>Data Lab disclaimer: <a href="https://datalab.noao.edu/disclaimers.php">https://datalab.noao.edu/disclaimers.php</a></p>
+<li><p>Data Lab disclaimer: <a href="https://datalab.noao.edu/disclaimers1.php">https://datalab.noao.edu/disclaimers1.php</a></p>
 </li>
 </ul>
 
@@ -14991,7 +14991,7 @@ UTILITY METHODS:
 
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>OK
-Current context: default
+Current context: sdss_dr16
          default   Default data context (default: &#39;sdss_dr16&#39;)
        sdss_dr16   SDSS DR16 coadded spectra from BOSS/eBOSS/SDSS (cached)
        sdss_dr15   SDSS DR15 coadded spectra from BOSS/eBOSS/SDSS
@@ -15069,7 +15069,7 @@ Current context: default
 <p>The <em>query()</em> may be called as:</p>
 
 <pre><code>        id_list = query (&lt;region&gt; | &lt;coord, size&gt; | &lt;ra, dec, size&gt;,
-                         constraint=&lt;sql_where_clause&gt;,
+                         out=None, constraint=&lt;sql_where_clause&gt;,
                          context=None, profile=None, **kw)
 
             where:
@@ -15225,7 +15225,7 @@ Current context: default
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Region query</span>
 <span class="n">region</span> <span class="o">=</span> <span class="p">[</span><span class="mf">29.95</span><span class="p">,</span><span class="mf">0.95</span><span class="p">,</span> <span class="mf">30.05</span><span class="p">,</span><span class="mf">0.95</span><span class="p">,</span> <span class="mf">30.05</span><span class="p">,</span><span class="mf">1.05</span><span class="p">,</span> <span class="mf">29.95</span><span class="p">,</span><span class="mf">1.05</span><span class="p">]</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s1">&#39;sdss&#39;</span><span class="p">,</span><span class="n">out</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s1">&#39;sdss_dr16&#39;</span><span class="p">,</span><span class="n">out</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">))</span>
 </pre></div>
 
     </div>
@@ -15258,9 +15258,7 @@ Current context: default
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p><a class="anchor" id="alt_cats"></a></p>
-<h2 id="Using-alternate-catalogs">Using alternate catalogs<a class="anchor-link" href="#Using-alternate-catalogs">&#182;</a></h2><p>The '<em>catalog</em>' parameter can be used to query alternate catalogs available for a given dataset context.  Note that in this example the output identifier list differs from the same positional query used above.  The name of the table to use is <em>not</em> limited to those tables listed for the context, any table within Data Lab may be used but we cannot guarantee an identifier will always be correct for the dataset (e.g. earlier SDSS data releases have differing 'specobjid' values).</p>
-<p>By default, and since SDSS is the only dataset at the moment, the <em>specobjid</em> value is what is used as the unique identifier in the catalog.  If another identifier is desired, the <em>fields</em> parameter can be set but note that the data access method likely won't be able to resolve it to spectral data unless it is a recognized spectral identifier.</p>
+<h3 id="Example-4)--Create-identifiers-from-Data-Lab">Example 4)  Create identifiers from Data Lab<a class="anchor-link" href="#Example-4)--Create-identifiers-from-Data-Lab">&#182;</a></h3><p>Internally, the <code>query()</code> method use the Data Lab <em>queryClient</em> to generate the identifier list. This can be done directly when more complex queries are needed (e.g. to join with a MyDB, make color cuts, etc).  For example,</p>
 
 </div>
 </div>
@@ -15270,8 +15268,57 @@ Current context: default
 <div class="prompt input_prompt">In&nbsp;[12]:</div>
 <div class="inner_cell">
     <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">query</span> <span class="o">=</span> <span class="s1">&#39;select specobjid from sdss_dr16.specobj where z &gt; 0.2 order by z limit 10&#39;</span>
+<span class="n">resp</span> <span class="o">=</span> <span class="n">queryClient</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">sql</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;array&#39;</span><span class="p">)</span>
+
+<span class="n">id_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">(</span><span class="n">resp</span><span class="p">)</span>         <span class="c1"># convert array elements to correct type</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">id_list</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>[  670052315511678976  2669599177071159296  8867843420221362176
+  2553640006539307008  5970722073106206720   522487132896389120
+   913239834280093696  1050508912752617472 12453832173538267136
+   487678518319147008]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><em>Note that here we were able to use "fmt='array'" to get the results as an array, but a bug in the internal converter returns these as float values.  We have to convert those to 64-bit integers so they are the correct type.  </em></p>
+<p><a class="anchor" id="alt_cats"></a></p>
+<h2 id="Using-alternate-catalogs">Using alternate catalogs<a class="anchor-link" href="#Using-alternate-catalogs">&#182;</a></h2><p>The '<em>catalog</em>' parameter can be used to query alternate catalogs available for a given dataset context.  Note that in this example the output identifier list differs from the same positional query used above.  The name of the table to use is <em>not</em> limited to those tables listed for the context, any table within Data Lab may be used but we cannot guarantee an identifier will always be correct for the dataset (e.g. earlier SDSS data releases have differing 'specobjid' values).</p>
+<p>By default, and since SDSS is the only dataset at the moment, the <em>specobjid</em> value is what is used as the unique identifier in the catalog.  If another identifier is desired, the <em>fields</em> parameter can be set but note that the data access method likely won't be able to resolve it to spectral data unless it is a recognized spectral identifier.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="inner_cell">
+    <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># RA/Dec query</span>
-<span class="n">id_list</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="mf">30.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.025</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">catalog</span><span class="o">=</span><span class="s1">&#39;sdss_dr16.sdssebossfirefly&#39;</span><span class="p">)</span>
+<span class="n">id_list</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="mf">30.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">catalog</span><span class="o">=</span><span class="s1">&#39;sdss_dr16.sdssebossfirefly&#39;</span><span class="p">)</span>
 <span class="nb">print</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">id_list</span><span class="p">))</span>
 </pre></div>
 
@@ -15289,8 +15336,11 @@ Current context: default
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>[1210489508743636992 1750917896554440704 2325105415127328768
- 3226968021482366976 1750920370455603200]
+<pre>[1694626468820183040 1210486485086660608 1210489508743636992
+ 3226968571238180864 1750919545821882368 1750917896554440704
+ 2325105415127328768 3226968021482366976 1750920370455603200
+ 4767234020315779072  453891900353570816 1750921744845137920
+  789367746562385920 1750921195089324032  453893824498919424]
 </pre>
 </div>
 </div>
@@ -15311,7 +15361,7 @@ Current context: default
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="prompt input_prompt">In&nbsp;[14]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Constraint tests</span>
@@ -15346,7 +15396,7 @@ Current context: default
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>As you can see, the results are different than for the same position used above.</p>
+<p>As you can see, the results are different than for the same position used in the previous cell.</p>
 <p><a class="anchor" id="out_opts"></a></p>
 <h2 id="Output-Options">Output Options<a class="anchor-link" href="#Output-Options">&#182;</a></h2><p>Normally, <em>query()</em> results are returned to the caller as a list object identifiers (even when only one object is found).  However, the ID list may be saved as a text file for later use by setting the <em>out</em> parameter to be a local filename or a virtual storage location.  In that case, identifiers are saved one-per-row and the <em>query()</em> method returns either 'OK' or an error message.</p>
 <h3 id="Example-1)--Return-output-to-caller">Example 1)  Return output to caller<a class="anchor-link" href="#Example-1)--Return-output-to-caller">&#182;</a></h3>
@@ -15355,7 +15405,7 @@ Current context: default
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="prompt input_prompt">In&nbsp;[15]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">id_list</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="mf">30.0</span><span class="p">,</span><span class="mf">1.0</span><span class="p">,</span><span class="mf">0.025</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>  <span class="c1"># return output to the caller</span>
@@ -15395,7 +15445,7 @@ Current context: default
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[15]:</div>
+<div class="prompt input_prompt">In&nbsp;[16]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">fname</span> <span class="o">=</span> <span class="s1">&#39;/tmp/test.id&#39;</span>
@@ -15439,7 +15489,7 @@ Local file:  SUCCESS
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[16]:</div>
+<div class="prompt input_prompt">In&nbsp;[17]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">fname</span> <span class="o">=</span> <span class="s1">&#39;vos://test.id&#39;</span>
@@ -15483,7 +15533,7 @@ VOS file:  SUCCESS
 <p>The <code>getSpec()</code> method may be called as:</p>
 
 <pre><code>        list = getSpec  (id_list, fmt='numpy',
-                         out=None, align=False, cutout=None,
+                         out=None, align=False, cutout=None, bands='all',
                          context=None, profile=None,
                          **kw)
             where:
@@ -15504,6 +15554,8 @@ VOS file:  SUCCESS
                 out         Output file location (fmt=FITS)
                 align       Align spectra to common wavelength grid
                 cutout      Cutout range as '&lt;start&gt;-&lt;end&gt;'
+                bands       A comma-delimited string of which bands to retrieve,
+                            a combination of 'flux,model,sky,ivar' or 'all'
                 context     Dataset context
                 profile     Service profile
                 kw          optional parameters
@@ -15520,8 +15572,9 @@ VOS file:  SUCCESS
 
 <pre><code>               numpy                A Numpy array
                pandas               A Pandas DataFrame
-               Spectrum1d           A 'specutils' Spectrum1D object
-               SpectrumCollection   A 'specutils' SpectrumCollection object
+               Spectrum1D           A 'specutils' Spectrum1D object
+               Spectrum1DList       A list of Spectrum1D objects
+               Spectrum1DCollection A 'specutils' SpectrumCollection object
                table                An Astropy Table
                FITS                 The original FITS file
 
@@ -15535,7 +15588,7 @@ VOS file:  SUCCESS
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="prompt input_prompt">In&nbsp;[18]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Utility routine to print information about a spectrum object.</span>
@@ -15571,7 +15624,7 @@ VOS file:  SUCCESS
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[18]:</div>
+<div class="prompt input_prompt">In&nbsp;[19]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span> 
@@ -15603,8 +15656,8 @@ VOS file:  SUCCESS
 Shape: (618, 3858)
 Element Type: &lt;class &#39;numpy.ndarray&#39;&gt;
 -----------
-CPU times: user 109 ms, sys: 286 ms, total: 394 ms
-Wall time: 2min 30s
+CPU times: user 113 ms, sys: 190 ms, total: 303 ms
+Wall time: 40.7 s
 </pre>
 </div>
 </div>
@@ -15638,7 +15691,7 @@ Wall time: 2min 30s
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[19]:</div>
+<div class="prompt input_prompt">In&nbsp;[20]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -15684,8 +15737,8 @@ Format: tables
  Type: &lt;class &#39;astropy.table.table.Table&#39;&gt;
   Len: 3816
 -----------
-CPU times: user 99 ms, sys: 22.3 ms, total: 121 ms
-Wall time: 198 ms
+CPU times: user 89.7 ms, sys: 16.9 ms, total: 107 ms
+Wall time: 183 ms
 </pre>
 </div>
 </div>
@@ -15705,14 +15758,14 @@ Wall time: 198 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[20]:</div>
+<div class="prompt input_prompt">In&nbsp;[21]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
 
 <span class="c1"># Generate a list of spectrum IDs by positional query.</span>
 <span class="n">id_list</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="mf">30.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">25.0</span><span class="p">,</span>
-                     <span class="n">ontext</span><span class="o">=</span><span class="s1">&#39;sdss&#39;</span><span class="p">,</span><span class="n">out</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">constraint</span><span class="o">=</span><span class="s2">&quot;z &gt; 0.1 and run2d=&#39;26&#39; order by z limit 100&quot;</span><span class="p">)</span>
+                     <span class="n">context</span><span class="o">=</span><span class="s1">&#39;sdss_dr16&#39;</span><span class="p">,</span><span class="n">out</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">constraint</span><span class="o">=</span><span class="s2">&quot;z &gt; 0.1 and run2d=&#39;26&#39; order by z limit 100&quot;</span><span class="p">)</span>
 <span class="n">info</span><span class="p">(</span><span class="n">id_list</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;No. of Spectra: </span><span class="si">%d</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">id_list</span><span class="p">))</span>
 </pre></div>
@@ -15738,8 +15791,8 @@ Element Type: &lt;class &#39;numpy.uint64&#39;&gt;
 -----------
 No. of Spectra: 100
 
-CPU times: user 36.1 ms, sys: 2.23 ms, total: 38.3 ms
-Wall time: 527 ms
+CPU times: user 31 ms, sys: 4.78 ms, total: 35.7 ms
+Wall time: 503 ms
 </pre>
 </div>
 </div>
@@ -15758,7 +15811,7 @@ Wall time: 527 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[21]:</div>
+<div class="prompt input_prompt">In&nbsp;[22]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span> 
@@ -15788,8 +15841,8 @@ Wall time: 527 ms
 Shape: (100, 3866)
 Element Type: &lt;class &#39;numpy.ndarray&#39;&gt;
 -----------
-CPU times: user 28 ms, sys: 42.3 ms, total: 70.3 ms
-Wall time: 462 ms
+CPU times: user 33.1 ms, sys: 33.4 ms, total: 66.5 ms
+Wall time: 416 ms
 </pre>
 </div>
 </div>
@@ -15808,7 +15861,7 @@ Wall time: 462 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[22]:</div>
+<div class="prompt input_prompt">In&nbsp;[23]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span> 
@@ -15840,8 +15893,8 @@ Wall time: 462 ms
 Shape: (100, 4655)
 Element Type: &lt;class &#39;numpy.ndarray&#39;&gt;
 -----------
-CPU times: user 55 ms, sys: 46 ms, total: 101 ms
-Wall time: 698 ms
+CPU times: user 55.5 ms, sys: 45.1 ms, total: 101 ms
+Wall time: 613 ms
 </pre>
 </div>
 </div>
@@ -15862,7 +15915,7 @@ Wall time: 698 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[23]:</div>
+<div class="prompt input_prompt">In&nbsp;[24]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="nb">id</span> <span class="o">=</span> <span class="p">(</span><span class="mi">4444</span><span class="p">,</span><span class="mi">55538</span><span class="p">,</span><span class="mi">142</span><span class="p">)</span>           <span class="c1"># SDSS DR9, run2d = &#39;v5_4_45&#39;</span>
@@ -15910,7 +15963,7 @@ Wall time: 698 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[24]:</div>
+<div class="prompt input_prompt">In&nbsp;[25]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Plot the residual</span>
@@ -16017,12 +16070,12 @@ Wall time: 698 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[25]:</div>
+<div class="prompt input_prompt">In&nbsp;[26]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Create a spectrum ID list for the plot</span>
 <span class="n">id_list</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="mf">30.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">25.0</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">constraint</span><span class="o">=</span><span class="s1">&#39;limit 100&#39;</span><span class="p">)</span>
-<span class="n">spec</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">id_list</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Test Object&#39;</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">4</span><span class="p">),</span><span class="n">bands</span><span class="o">=</span><span class="s1">&#39;flux,model&#39;</span><span class="p">,</span> <span class="n">mark_lines</span><span class="o">=</span><span class="s1">&#39;e&#39;</span><span class="p">)</span>
+<span class="n">spec</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">id_list</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Test Object&#39;</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">4</span><span class="p">),</span><span class="n">bands</span><span class="o">=</span><span class="s1">&#39;flux,model&#39;</span><span class="p">,</span> <span class="n">mark_lines</span><span class="o">=</span><span class="s1">&#39;emission&#39;</span><span class="p">)</span>
 </pre></div>
 
     </div>
@@ -16055,14 +16108,14 @@ Wall time: 698 ms
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>The above plot uses the 'dark' mode option and marks only the emission lines in the spectrum.  In the next example we plot the data directly using the default 'light' mode theme, marking both absorption and emission lines:</p>
+<p>The above plot uses the 'dark' mode option and marks only the emission lines in the spectrum (the 'mark_lines' value may be abbreviated).  In the next example we plot the data directly using the default 'light' mode theme, marking both absorption and emission lines (which is the default):</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[26]:</div>
+<div class="prompt input_prompt">In&nbsp;[27]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Plot using a retrieved spectrum</span>
@@ -16115,7 +16168,7 @@ Wall time: 698 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[27]:</div>
+<div class="prompt input_prompt">In&nbsp;[28]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -16142,21 +16195,21 @@ Wall time: 698 ms
 <pre> Type: &lt;class &#39;PIL.PngImagePlugin.PngImageFile&#39;&gt;
 object of type &#39;PngImageFile&#39; has no len()
 -----------
-CPU times: user 29.5 ms, sys: 2.25 ms, total: 31.8 ms
-Wall time: 34.6 ms
+CPU times: user 26 ms, sys: 3.33 ms, total: 29.3 ms
+Wall time: 30.9 ms
 </pre>
 </div>
 </div>
 
 <div class="output_area">
 
-    <div class="prompt output_prompt">Out[27]:</div>
+    <div class="prompt output_prompt">Out[28]:</div>
 
 
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>&lt;matplotlib.image.AxesImage at 0x7fb91525cf50&gt;</pre>
+<pre>&lt;matplotlib.image.AxesImage at 0x7f3d75f26410&gt;</pre>
 </div>
 
 </div>
@@ -16191,7 +16244,7 @@ Wall time: 34.6 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[28]:</div>
+<div class="prompt input_prompt">In&nbsp;[29]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -16243,8 +16296,8 @@ object of type &#39;PngImageFile&#39; has no len()
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>CPU times: user 71.8 ms, sys: 4.12 ms, total: 76 ms
-Wall time: 203 ms
+<pre>CPU times: user 83.5 ms, sys: 4.75 ms, total: 88.2 ms
+Wall time: 167 ms
 </pre>
 </div>
 </div>
@@ -16263,7 +16316,7 @@ Wall time: 203 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[29]:</div>
+<div class="prompt input_prompt">In&nbsp;[30]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -16319,8 +16372,8 @@ class="unconfined"
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>CPU times: user 14.4 ms, sys: 3.1 ms, total: 17.5 ms
-Wall time: 99.2 ms
+<pre>CPU times: user 14 ms, sys: 5.05 ms, total: 19.1 ms
+Wall time: 99.6 ms
 </pre>
 </div>
 </div>
@@ -16340,7 +16393,7 @@ Wall time: 99.2 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[30]:</div>
+<div class="prompt input_prompt">In&nbsp;[31]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -16390,8 +16443,8 @@ Wall time: 99.2 ms
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>CPU times: user 270 ms, sys: 19.6 ms, total: 290 ms
-Wall time: 1.38 s
+<pre>CPU times: user 230 ms, sys: 11.2 ms, total: 241 ms
+Wall time: 739 ms
 </pre>
 </div>
 </div>
@@ -16410,7 +16463,7 @@ Wall time: 1.38 s
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[31]:</div>
+<div class="prompt input_prompt">In&nbsp;[32]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -16466,8 +16519,8 @@ class="unconfined"
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>CPU times: user 16.5 ms, sys: 6.71 ms, total: 23.2 ms
-Wall time: 281 ms
+<pre>CPU times: user 15.4 ms, sys: 3.06 ms, total: 18.4 ms
+Wall time: 257 ms
 </pre>
 </div>
 </div>
@@ -16493,7 +16546,7 @@ Wall time: 281 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[32]:</div>
+<div class="prompt input_prompt">In&nbsp;[33]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">spec1d</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">to_Spectrum1D</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
@@ -16534,7 +16587,7 @@ Wall time: 281 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[33]:</div>
+<div class="prompt input_prompt">In&nbsp;[34]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">to_pandas</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
@@ -16577,7 +16630,7 @@ Shape: (4655, 8)
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[34]:</div>
+<div class="prompt input_prompt">In&nbsp;[35]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">tab</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">to_Table</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
@@ -16619,7 +16672,7 @@ Shape: (4655, 8)
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[35]:</div>
+<div class="prompt input_prompt">In&nbsp;[36]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">end_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
@@ -16640,7 +16693,7 @@ Shape: (4655, 8)
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>Notebook run time: 161 sec
+<pre>Notebook run time: 54.2 sec
 </pre>
 </div>
 </div>
