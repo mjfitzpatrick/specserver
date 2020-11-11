@@ -243,9 +243,6 @@ def validate(request):
     else:
         resp = 'Error: unknown validation "%s"' % what
 
-    print('p = ' + str(config['profiles'].keys()))
-    print('c = ' + str(config['contexts'].keys()))
-    print('what=%s  val=%s  --> %s' % (what, value, resp))
     return web.Response(text=resp)
 
 
@@ -260,7 +257,6 @@ async def getSpec(request):
     ''' 
     '''
     params = await request.post()
-    #print('params = ' + str(params))
     try:
         id_list = params['id_list']
         bands = params['bands']                         # NYI
@@ -308,9 +304,7 @@ async def getSpec(request):
         nspec = nspec + 1
         if fmt.lower() == 'fits':
             fname = svc.dataPath(id, 'fits')
-            print('fmt=fits: ' + fname)
             data = svc.readFile(str(fname))
-            print('fmt=fits: len = ' + str(len(data)))
             return web.Response(body=data)
         else:
             fname = svc.dataPath(id, 'npy')
@@ -342,17 +336,13 @@ async def getSpec(request):
                 print('w0,w1 = (%g,%g)  pad = (%d,%d)' % (w0,w1,lpad,rpad))
                 print('len f = %d   len data = %d' % (len(f),len(data)))
 
-        print ('res ty = ' + str(type(res)))
         if res is None:
-            print ('res initial')
             res = f
         else:
-            print ('res vstack')
             res = np.vstack((res,f))
         p1 = time.time()
         ptime = ptime + (p1 - p0)
 
-    print('res type: ' + str(type(res)) + ' shape: ' + str(res.shape))
     if debug:
         print('res type: ' + str(type(res)) + ' shape: ' + str(res.shape))
 
@@ -384,7 +374,6 @@ async def preview(request):
     # Instantiate the dataset service based on the context parameter.
     svc = _getSvc(context)
     fname = svc.previewPath(spec_id)
-    print ('preview fname: ' + fname)
 
     return web.Response(body=svc.readFile(fname))
 

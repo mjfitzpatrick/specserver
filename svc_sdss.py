@@ -74,7 +74,6 @@ class sdssService(Service):
             spath = base_path + \
                   '%s/sdss/spectro/redux/%s/spectra/%04i/spec-%04i-%05i-%04i.%s' % \
                   (self.release,str(r),plate,plate,mjd,fiber,extn)
-            print('RUN2D path: ' + spath)
             if os.path.exists(spath):
                 if self.debug: print('findFile() time0: ' + \
                                      str(time.time()-st_time))
@@ -84,7 +83,6 @@ class sdssService(Service):
         spath = base_path + \
                   '%s/*/spectro/redux/*/spectra/full/%04i/spec-%04i-%05i-%04i.%s' % \
                   (self.release,plate,plate,mjd,fiber,extn)
-        print('FALLTHRU path: ' + spath)
         files = glob.glob(spath)
         for f in files:
             if os.path.exists(f):
@@ -213,7 +211,6 @@ class sdssService(Service):
             # At least some identifiers are tuple strings.
             ids = []
             for s in id_str:
-                print('ID_STR s: ' + s)
                 if s[0] == '(':
                     v = eval(s)
                     if len(v) == 1:
@@ -241,10 +238,8 @@ class sdssService(Service):
         '''Return the data in the named file as a numpy array.
         '''
         if fname[-3:] == 'npy':
-            print('getData() reading npy')
             return np.load(str(fname))
         elif fname[-4:] == 'fits':
-            print('getData() reading FITS')
             data = Table.read(fname, hdu=1).as_array()
             retval = BytesIO()
             np.save(retval, data, allow_pickle=False)
@@ -309,13 +304,10 @@ class sdssService(Service):
             fname = self. buildPath(plate, mjd, fiber, run2d, survey, extn)
             if not os.path.exists(fname):
                 # Not found in the current context, look around....
-                print('FILE NOT FOUND: ' + fname)
                 fname = self.findFile(plate,mjd,fiber,extn)
-                print('NEW FILE: ' + str(fname))
 
         # Lastly, try to find a FITS file before giving up.
         if fname is None:
-            print('TRY FITS:  %s,%s,%s\n' % (str(plate),str(mjd),str(fiber)))
             fname = self.findFile(plate,mjd,fiber,'fits')
             if fname is None:
                 raise Exception('File not found: ')
