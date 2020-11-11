@@ -1,0 +1,8 @@
+#!/bin/sh
+
+
+dd if=/dev/zero of=junk12K bs=12K count=1
+dd if=/dev/zero of=junk128K bs=128K count=1
+dd if=/dev/zero of=junk1M bs=1M count=1
+dd if=/dev/zero of=junk10M bs=10M count=1
+dd if=/dev/zero of=junk100M bs=100M count=1
