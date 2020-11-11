@@ -41,7 +41,7 @@ __version__ = 'v1.1.0'
                              out=None, align=False, cutout=None,
                              context=None, profile=None, **kw)
     PLOT  INTERFACE:
-                      plot  (spec, context=context, profile=profile, **kw)
+                      plot  (spec, context=None, profile=None, out=None, **kw)
          status = prospect  (spec, context=context, profile=profile, **kw)
            image = preview  (id, context=context, profile=profile, **kw)
           image = plotGrid  (id_list, nx, ny, page=<N>,
@@ -49,9 +49,10 @@ __version__ = 'v1.1.0'
       image = stackedImage  (id_list, fmt='png|numpy',
                              align=False, yflip=False,
                              context=context, profile=profile, **kw)
-    UTILITT METHODS:
-                 to_pandas  (npy_data)
-             to_Spectrum1D  (npy_data)
+    UTILITY METHODS:
+            df = to_pandas  (npy_data)
+    spec1d = to_Spectrum1D  (npy_data)
+            tab = to_Table  (npy_data)
 
 Import via
 
@@ -341,10 +342,10 @@ def to_pandas(npy_data):
 # --------------------------------------------------------------------
 # TO_TABLE -- Utility method to convert a Numpy array to an Astropy Table
 #
-def to_table(npy_data):
+def to_Table(npy_data):
     '''Utility method to convert a Numpy array to an Astropy Table object.
     '''
-    return sp_client.to_table(npy_data)
+    return sp_client.to_Table(npy_data)
 
 
 
@@ -1111,7 +1112,7 @@ class specClient(object):
     # --------------------------------------------------------------------
     # TO_TABLE -- Utility method to convert a Numpy array to an Astropy Table
     #
-    def to_table(self, npy_data):
+    def to_Table(self, npy_data):
         '''Utility method to convert a Numpy array to an Astropy Table object.
         '''
         return Table(data=npy_data, names=npy_data.dtype.names)
@@ -1520,11 +1521,11 @@ class specClient(object):
                     return pd_data
             elif fmt.lower()[:6] == 'tables':
                 if len(_data) == 1:
-                    return self.to_table(_data[0])
+                    return self.to_Table(_data[0])
                 else:
                     tb_data = []
                     for d in _data:
-                        tb_data.append(self.to_table(d))
+                        tb_data.append(self.to_Table(d))
                     return tb_data
             elif fmt.lower()[:8] == 'spectrum':
                 # FIXME: column names are SDSS-specific??
