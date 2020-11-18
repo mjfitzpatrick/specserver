@@ -23,7 +23,7 @@ __version__ = 'v1.1.0'
                set_context  (context)
          ctx = get_context  ()
       ctxs = list_contexts  (context, fmt='text')
-      ctxs = list_contexts  (contexts=None, fmt='text')
+      ctxs = list_contexts  (context=None, fmt='text')
 
                set_profile  (profile)
         prof = get_profile  ()
@@ -97,7 +97,8 @@ except ImportError:
 import pycurl
 
 # Data Lab imports.
-from dl import queryClient
+import queryClient
+#from dl import queryClient
 from dl import storeClient
 from dl.Util import def_token
 from dl.Util import multimethod
@@ -273,7 +274,7 @@ def list_profiles(profile=None, fmt='text'):
 #
 @multimethod('spc',1,False)
 def list_contexts(context, fmt='text'):
-    return sp_client._list_contexts(contexts=context, fmt=fmt)
+    return sp_client._list_contexts(context=context, fmt=fmt)
 
 @multimethod('spc',0,False)
 def list_contexts(context=None, fmt='text'):
@@ -346,7 +347,6 @@ def to_Table(npy_data):
     '''Utility method to convert a Numpy array to an Astropy Table object.
     '''
     return sp_client.to_Table(npy_data)
-
 
 
 
@@ -575,7 +575,7 @@ def plot(spec, context=None, profile=None, out=None, **kw):
                   xlim - Set the xrange of the plot
                   ylim - Set the yrange of the plot
 
-                 bands - A comma-delimited string of which bands to plot,
+                values - A comma-delimited string of which values to plot,
                          a combination of 'flux,model,sky,ivar'
             mark_lines - Which lines to mark.  No lines marked if None or
                          an empty string, otherwise one of 'em|abs|all|both'
@@ -1027,7 +1027,7 @@ class specClient(object):
         if '{' in profiles:
             profiles = json.loads(profiles)
 
-        return spcToString(profiles)
+        return profiles
 
 
 
@@ -1057,7 +1057,7 @@ class specClient(object):
         if '{' in contexts:
             contexts = json.loads(contexts)
 
-        return spcToString(contexts)
+        return contexts
 
 
     def catalogs(self, context='default', profile='default', fmt='text'):
@@ -1395,7 +1395,7 @@ class specClient(object):
 
         # Process optional parameters.
         cutout = kw['cutout'] if 'cutout' in kw else ''
-        bands = kw['bands'] if 'bands' in kw else 'all'
+        values = kw['values'] if 'values' in kw else 'all'
         token = kw['token'] if 'token' in kw else self.auth_token
         verbose = kw['verbose'] if 'verbose' in kw else False
         debug = kw['debug'] if 'debug' in kw else False
@@ -1450,7 +1450,7 @@ class specClient(object):
 
         # Initialize the payload.
         data = {'id_list' : id_list,
-                'bands' : bands,
+                'values' : values,
                 'format' : fmt,
                 'align' : align,
                 'cutout' : cutout,
@@ -1580,7 +1580,7 @@ class specClient(object):
                       xlim - Set the xrange of the plot
                       ylim - Set the yrange of the plot
     
-                     bands - A comma-delimited string of which bands to plot,
+                    values - A comma-delimited string of which values to plot,
                              a combination of 'flux,model,sky,ivar'
                 mark_lines - Which lines to mark.  No lines marked if None or
                              an empty string, otherwise one of 'em|abs|all|both'
@@ -1957,7 +1957,7 @@ class specClient(object):
             * ylim - Setting the yrange of the plot
     
         Optional kwargs:
-            * bands - A comma-delimited string of which bands to plot, a
+            * values - A comma-delimited string of which values to plot, a
                       combination of 'flux,model,sky,ivar'
             * mark_lines - Which lines to mark.  No lines marked if None or
                            an empty string, otherwise one of 'em|abs|all|both'
@@ -1997,7 +1997,7 @@ class specClient(object):
         mark_lines = kw['mark_lines'] if 'mark_lines' in kw else 'all'
         em_lines = kw['em_lines'] if 'em_lines' in kw else None
         abs_lines = kw['abs_lines'] if 'abs_lines' in kw else None
-        bands = kw['bands'] if 'bands' in kw else 'flux,model'
+        values = kw['values'] if 'values' in kw else 'flux,model'
     
         if 'spec_args' in kw:
             spec_args = kw['spec_args']
@@ -2027,23 +2027,23 @@ class specClient(object):
             plt.rcParams['axes.facecolor']='#FFFFFF'
     
         ax = fig.add_subplot(111)
-        if 'flux' in bands:
+        if 'flux' in values:
             if ivar is None:
                 ax.plot(wavelength, flux, label='Flux', **spec_args)
             else:
                 ax.plot(wavelength, flux*(ivar > 0), label='Flux', **spec_args)
-        if 'model' in bands and model is not None:
+        if 'model' in values and model is not None:
             if ivar is None:
                 ax.plot(wavelength, model, label='Model', **model_args)
             else:
                 ax.plot(wavelength, model*(ivar > 0), label='Model',
                         **model_args)
-        if 'sky' in bands and sky is not None and ivar is not None:
+        if 'sky' in values and sky is not None and ivar is not None:
             if ivar is None:
                 ax.plot(wavelength, sky, label='Sky', **model_args)
             else:
                 ax.plot(wavelength, sky*(ivar > 0), label='Sky', **sky_args)
-        if 'ivar' in bands and ivar is not None:
+        if 'ivar' in values and ivar is not None:
             ax.plot(wavelength, ivar*(ivar > 0), label='Ivar', **ivar_args)
     
         plt.xlim(xlim)
@@ -2202,7 +2202,7 @@ def getClient(context='default', profile='default'):
 
 
 # Get the default client object.
-sp_client = getClient(context='default', profile='default')
+sp_client = client = getClient(context='default', profile='default')
 
 
 # ##########################################

@@ -188,6 +188,8 @@ def contexts(request):
 
         if fmt == 'csv':
             return ",".join(context)
+        elif fmt == 'json':
+            return web.Response(text=json.dumps(config['contexts']))
         elif fmt == 'text':
             txt = ''
             for p in context:
@@ -196,7 +198,7 @@ def contexts(request):
                     txt = txt + ("%16s   %s\n" % (p,str(conf['description'])))
             return web.Response(text=txt)
     else:
-        raw = config['contexts'].copy()
+        raw = config['contexts'][context].copy()
         return web.Response(text=json.dumps(raw))
 
 
@@ -250,7 +252,7 @@ def validate(request):
 # Data Service Endpoints
 # =======================================
 
-# GETSPEC -- Get a single spectrum 
+# GETSPEC -- Get a spectra from the data service.
 #
 @routes.post('/spec/getSpec')
 async def getSpec(request):
@@ -259,7 +261,7 @@ async def getSpec(request):
     params = await request.post()
     try:
         id_list = params['id_list']
-        bands = params['bands']                         # NYI
+        values = params['values']                         # NYI
         cutout = params['cutout']                       # NYI
         fmt = params['format']
         align = (params['align'].lower() == 'true')
@@ -310,10 +312,10 @@ async def getSpec(request):
             fname = svc.dataPath(id, 'npy')
             data = svc.getData(str(fname))
 
-        if bands != 'all':
-            # Extract the subset of bands.
-            dbands = data[[c for c in list(data.dtype.names) if c in bands]]
-            data = rfn.repack_fields(dbands)
+        if values != 'all':
+            # Extract the subset of values.
+            dvalues = data[[c for c in list(data.dtype.names) if c in values]]
+            data = rfn.repack_fields(dvalues)
 
         if not align:
             f = data
