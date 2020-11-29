@@ -97,8 +97,7 @@ except ImportError:
 import pycurl
 
 # Data Lab imports.
-import queryClient
-#from dl import queryClient
+from dl import queryClient
 from dl import storeClient
 from dl.Util import def_token
 from dl.Util import multimethod
@@ -492,13 +491,13 @@ def getSpec(id_list, fmt='numpy', out=None, align=False, cutout=None,
         Return format of spectra
 
     out : 
-        Return format of spectra
+        Output file or return to caller if None
 
     align : 
-        Return format of spectra
+        Align spectra to common wavelength grid with zero-padding
 
-    cutout : 
-        Return format of spectra
+    cutout: 
+        Wavelength cutout range (as "<start>-<end>")
 
     context : str
         Dataset context.
@@ -1084,7 +1083,11 @@ class specClient(object):
     def to_Spectrum1D(self, npy_data):
         ''' Convert a Numpy spectrum array to a Spectrum1D object.
         '''
-        lamb = 10**npy_data['loglam'] * u.AA 
+        print('IN TO_SPECRUM1D')
+        if npy_data.ndim == 2:
+            lamb = 10**npy_data['loglam'][0] * u.AA 
+        else:
+            lamb = 10**npy_data['loglam'] * u.AA 
         flux = npy_data['flux'] * 10**-17 * u.Unit('erg cm-2 s-1 AA-1')
         mask = npy_data['flux'] != 0
         flux_unit = u.Unit('erg cm-2 s-1 AA-1')
@@ -1346,13 +1349,13 @@ class specClient(object):
             Return format of spectra
     
         out : 
-            Return format of spectra
+            Output filename or return to caller if None
     
         align : 
-            Return format of spectra
+            Align spectra to common wavelength grid with zero-padding
     
         cutout : 
-            Return format of spectra
+            Wavelength cutout range (as "<start>-<end>")
     
         context : str
             Dataset context.
@@ -1506,6 +1509,7 @@ class specClient(object):
             if debug:
                 print('len _data: ' + str(len(_data)))
                 print('typ _data: ' + str(type(_data)))
+            print('fmt: ' + str(fmt))
             if fmt.lower()[:5] == 'numpy':
                 if len(_data) == 1:
                     return _data[0]
@@ -1529,8 +1533,13 @@ class specClient(object):
                     return tb_data
             elif fmt.lower()[:8] == 'spectrum':
                 # FIXME: column names are SDSS-specific??
+                print ('_data.shape: ' + str(_data.shape))
+                print ('ty _data: ' + str(type(_data)))
+                print ('ty _data[0]: ' + str(type(_data[0])))
                 if len(_data) == 1:
                     return self.to_Spectrum1D(_data[0])
+                elif align:
+                    return self.to_Spectrum1D(_data)
                 else:
                     sp_data = []
                     for i in range(len(_data)):
@@ -1944,7 +1953,7 @@ class specClient(object):
     #
     @staticmethod
     def _plotSpec(wavelength, flux, model=None, sky=None, ivar=None,
-                  rest_frame = True, z=0.0, xlim = None, ylim = None,
+                  rest_frame=True, z=0.0, xlim=None, ylim=None,
                   title=None, xlabel=None, ylabel=None, out=None, **kw):
         """Plot a spectrum.
         
@@ -2067,7 +2076,7 @@ class specClient(object):
         if grid: plt.grid(color='gray', linestyle='dashdot', linewidth=0.5)
     
         if title not in [None, '']:
-            ax.set_title(title + '\n', c=am_color)
+            ax.set_title(title, c=am_color)
         
         # Plotting Absorption/Emission lines - only works if either of the
         # lines is set to True
