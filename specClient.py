@@ -1509,7 +1509,6 @@ class specClient(object):
             if debug:
                 print('len _data: ' + str(len(_data)))
                 print('typ _data: ' + str(type(_data)))
-            print('fmt: ' + str(fmt))
             if fmt.lower()[:5] == 'numpy':
                 if len(_data) == 1:
                     return _data[0]
