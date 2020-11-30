@@ -161,7 +161,7 @@ def profiles(request):
             return ",".join(profiles)
         elif fmt == 'text':
             txt = ''
-            for p in sorted(profiles):
+            for p in profiles:
                 prof = config['profiles'][p]
                 if prof['type'] in ['public','external']:
                     txt = txt + ("%16s   %s\n" % (p,str(prof['description'])))
@@ -217,12 +217,12 @@ def catalogs(request):
 
     if fmt == 'csv':
         txt = 'catalog_name,description\n'
-        for p in sorted(catalogs):
+        for p in catalogs:
             cat = config['contexts'][context]['catalogs'][p]
             txt = txt + ("%s,%s\n" % (p, cat))
     elif fmt == 'text':
         txt = "Catalogs used by '%s' context:\n\n" % context
-        for p in sorted(catalogs):
+        for p in catalogs:
             cat = config['contexts'][context]['catalogs'][p]
             txt = txt + ("%30s   %s\n" % (p, cat))
     return web.Response(text=txt)
@@ -261,7 +261,7 @@ async def getSpec(request):
     params = await request.post()
     try:
         id_list = params['id_list']
-        values = params['values']                         # NYI
+        values = params['values']                       # NYI
         cutout = params['cutout']                       # NYI
         fmt = params['format']
         align = (params['align'].lower() == 'true')
