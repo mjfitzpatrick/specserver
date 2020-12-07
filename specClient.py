@@ -1089,14 +1089,15 @@ class specClient(object):
         else:
             lamb = 10**npy_data['loglam'] * u.AA 
         flux = npy_data['flux'] * 10**-17 * u.Unit('erg cm-2 s-1 AA-1')
-        mask = npy_data['flux'] != 0
+        mask = npy_data['flux'] == 0
         flux_unit = u.Unit('erg cm-2 s-1 AA-1')
         uncertainty = InverseVariance(npy_data['ivar'] / flux_unit**2)
 
         spec1d = Spectrum1D(spectral_axis=lamb, flux=flux,
                             uncertainty=uncertainty, mask=mask)
-        spec1d.meta['sky'] = npy_data['sky']
-        spec1d.meta['model'] = npy_data['model']
+
+        spec1d.meta['sky'] = npy_data['sky'] * 10**-17 * flux_unit
+        spec1d.meta['model'] = npy_data['model'] * 10**-17 * flux_unit
         spec1d.meta['ivar'] = npy_data['ivar']
 
         return spec1d
@@ -1259,8 +1260,8 @@ class specClient(object):
             if fields == 'tuple':
                 fields = 'plate,mjd,fiberid,run2d'
                 raise dlSpecError('Error: "tuple" not yet supported')
-            if fields.find(',') > 0:
-                raise dlSpecError('Error: multiple fields not yet supported')
+            #if fields.find(',') > 0:
+            #    raise dlSpecError('Error: multiple fields not yet supported')
             catalog = kw['catalog'] if 'catalog' in kw else 'sdss_dr16.specobj'
             primary = kw['primary'] if 'primary' in kw else True
             if not primary and catalog == 'sdss_dr16_specobj':
