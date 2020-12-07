@@ -810,10 +810,11 @@ class specClient(object):
         self.svc_url = DEF_SERVICE_URL          # service URL
         self.qm_svc_url = QM_SERVICE_URL        # Query Manager service URL
         self.sm_svc_url = SM_SERVICE_URL        # Storage Manager service URL
+        self.auth_token = def_token(None)       # default auth token (not used)
         self.svc_profile = profile              # service profile
         self.svc_context = context              # dataset context
-        self.auth_token = def_token(None)       # default auth token (not used)
 
+        self.conf = self.list_contexts(context) # get server config
         self.hostip = THIS_IP
         self.hostname = THIS_HOST
 
