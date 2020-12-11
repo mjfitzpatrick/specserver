@@ -199,6 +199,7 @@ def contexts(request):
             return web.Response(text=txt)
     else:
         raw = config['contexts'][context].copy()
+        raw = config['contexts'][context]
         return web.Response(text=json.dumps(raw))
 
 
@@ -251,6 +252,37 @@ def validate(request):
 # =======================================
 # Data Service Endpoints
 # =======================================
+
+# QUERY -- Query for spectra.
+#
+@routes.get('/spec/query')
+async def query(request):
+    ''' 
+    '''
+    try:
+        fields = request.query['fields']
+        catalog = request.query['catalog']
+        cond = request.query['cond']
+        context = request.query['context']
+        profile = request.query['profile']
+        debug = (request.query['debug'].lower() == 'true')
+        verbose = (request.query['verbose'].lower() == 'true')
+    except Exception as e:
+        logging.error ('Param Error: ' + str(e))
+        return web.Response(text='Param Error: ' + str(e))
+
+    st_time = time.time()
+
+    # Instantiate the service based on the context.
+    svc = _getSvc(context)
+    svc.debug = debug
+    svc.verbose = verbose
+
+    # Call the dataset-specific query method.  This allows the service to
+    # do any data-specific formatting.  The result is always returned as a
+    # csv string.
+    return web.Response(text=svc.query(fields, catalog, cond))
+
 
 # GETSPEC -- Get a spectra from the data service.
 #
