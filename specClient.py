@@ -88,19 +88,21 @@ from astropy import units as u
 from astropy.nddata import StdDevUncertainty
 from astropy.nddata import InverseVariance
 from astropy.table import Table
-from matplotlib import pyplot as plt      # visualization libs
+from matplotlib import pyplot as plt      	# visualization libs
 
 try:
-    import pycurl_requests as requests
+    import pycurl_requests as requests		# faster 'requests' lib
 except ImportError:
-    import requests
-import pycurl
+    import requests				# fall-back 'requests' lib
+import pycurl					# low-level interface
+from urllib.parse import quote_plus		# URL encoding
 
 # Data Lab imports.
 from dl import queryClient
 from dl import storeClient
 from dl.Util import def_token
 from dl.Util import multimethod
+from dl.helpers.utils import convert
 
 
 # Python version check.
@@ -174,6 +176,29 @@ class dlSpecError(Exception):
 
     def __str__(self):
         return self.message
+
+
+# ###################################
+#  Py2/Py3 Compatability Utilities
+# ###################################
+
+def spcToString(s):
+    '''spcToString -- Force a return value to be type 'string' for all
+                      Python versions.
+    '''
+    if is_py3:
+        if isinstance(s,bytes):
+            strval = str(s.decode())
+        elif isinstance(s,str):
+            strval = s
+    else:
+        if isinstance(s,bytes) or isinstance(s,unicode):
+            strval = str(s)
+        else:
+            strval = s
+
+    return strval
+
 
 
 
@@ -437,9 +462,6 @@ def query(region, constraint=None, out=None,
                value, the p/m/f tuple is extracted from the
                bitmask value by the client.
 
-           primary:
-               True                # query sdss_dr16.specobj
-               False               # query sdss_dr16.specobjall
            catalog:
                <schema>.<table>    # alternative catalog to query e.g. a 
                                    # VAC from earlier DR (must support an
@@ -508,6 +530,12 @@ def getSpec(id_list, fmt='numpy', out=None, align=False, cutout=None,
     **kw : dict
         Optional keyword arguments.  Supported keywords currently include:
 
+           values = None
+               Spectrum vectors to return.
+           token = None
+               Data Lab auth token.
+           id_col = None
+               Name of ID column in input table.
            verbose = False
                Print verbose messages during retrieval
            debug = False
@@ -814,11 +842,13 @@ class specClient(object):
         self.svc_profile = profile              # service profile
         self.svc_context = context              # dataset context
 
-        self.conf = self.list_contexts(context) # get server config
         self.hostip = THIS_IP
         self.hostname = THIS_HOST
-
         self.debug = DEBUG                      # interface debug flag
+
+        # Get the server-side config for the context.  Note this must also
+	# be updated whenever we do a set_svc_url() or set_context().
+        self.conf = self._list_contexts(context) 
 
 
     # Standard Data Lab service methods.
@@ -843,6 +873,7 @@ class specClient(object):
             specClient.set_svc_url("http://localhost:7001/")
         '''
         self.svc_url = spcToString(svc_url.strip('/'))
+        self.conf = self._list_contexts(context=self.svc_context)
 
     def get_svc_url(self):
         '''Return the currently-used Spectroscopic Data Service URL.
@@ -935,6 +966,7 @@ class specClient(object):
         url = self.svc_url + '/validate?what=context&value=%s' % context
         if spcToString(self.curl_get(url)) == 'OK':
             self.svc_context = spcToString(context)
+            self.conf = self._list_contexts(context=self.svc_context)
             return 'OK'
         else:
             raise Exception('Invalid context "%s"' % context)
@@ -1084,7 +1116,6 @@ class specClient(object):
     def to_Spectrum1D(self, npy_data):
         ''' Convert a Numpy spectrum array to a Spectrum1D object.
         '''
-        print('IN TO_SPECRUM1D')
         if npy_data.ndim == 2:
             lamb = 10**npy_data['loglam'][0] * u.AA 
         else:
@@ -1209,9 +1240,6 @@ class specClient(object):
                    value, the p/m/f tuple is extracted from the
                    bitmask value by the client.
 
-               primary:
-                   True                # query sdss_dr16.specobj
-                   False               # query sdss_dr16.specobjall
                catalog:
                    <schema>.<table>    # alternative catalog to query e.g. a 
                                        # VAC from earlier DR (must support an
@@ -1256,20 +1284,11 @@ class specClient(object):
         if profile in [None, '']: profile = self.svc_profile
 
         # Process optional keyword arguments.
+        ofields = kw['fields'] if 'fields' in kw else self.conf['id_main']
+        catalog = kw['catalog'] if 'catalog' in kw else self.conf['catalog']
         if context == 'default' or context.startswith('sdss'):
-            fields = kw['fields'] if 'fields' in kw else 'specobjid'
-            if fields == 'tuple':
-                fields = 'plate,mjd,fiberid,run2d'
-                raise dlSpecError('Error: "tuple" not yet supported')
-            #if fields.find(',') > 0:
-            #    raise dlSpecError('Error: multiple fields not yet supported')
-            catalog = kw['catalog'] if 'catalog' in kw else 'sdss_dr16.specobj'
-            primary = kw['primary'] if 'primary' in kw else True
-            if not primary and catalog == 'sdss_dr16_specobj':
-                catalog = 'sdss_dr16.specobjall'
-        else:
-            fields = kw['fields'] if 'fields' in kw else 'specobjid'
-            catalog = kw['catalog'] if 'catalog' in kw else 'sdss_dr16.specobj'
+            if ofields == 'tuple':
+                ofields = 'plate,mjd,fiberid,run2d'
 
         timeout = kw['timeout'] if 'timeout' in kw else 600
         token = kw['token'] if 'token' in kw else self.auth_token
@@ -1297,40 +1316,59 @@ class specClient(object):
             pquery = "q3c_radial_query(ra,dec,%f,%f,%f)" % (ra, dec, _size)
 
         # Create the query string for the IDs.
-        sql = 'SELECT %s FROM %s WHERE %s' % (fields, catalog, pquery)
+        sql = 'SELECT %s FROM %s WHERE %s' % (ofields, catalog, pquery)
 
+        cond = pquery
         # Add any user-defined constraint.
         if constraint not in [None, '']:
             if constraint[:5].lower() in ['limit', 'order']:
                 sql += ' %s' % constraint
+                cond += ' %s' % constraint
             else:
                 sql += ' AND %s' % constraint
+                cond += ' AND %s' % constraint
+        if debug: print ('SQL = ' + sql)
+        if debug: print ('cond = ' + cond)
 
-        # Query for the IDs.
-        if debug:
-            print ('SQL = ' + sql)
-        res = queryClient.query (sql=sql, fmt='csv').split('\n')[1:-1]
-        if debug:
-            print ('res = ' + str(res))
+        # Query for the ID/fields.
+        #res = queryClient.query (sql=sql, fmt='csv').split('\n')[1:-1]
+        #if debug:
+        #    print ('res = ' + str(res))
 
-        id_list = np.array(res, dtype=np.uint64)
+        # Try new query()
+        _headers = self.getHeaders (None)
+        _svc_url = '%s/query?' % self.svc_url
+        _svc_url += "fields=%s&" % ofields
+        _svc_url += "catalog=%s&" % catalog
+        _svc_url += "cond=%s&" % quote_plus(cond)
+        _svc_url += "context=%s&" % context
+        _svc_url += "profile=%s&" % profile
+        _svc_url += "debug=%s&" % debug
+        _svc_url += "verbose=%s" % False
+        r = requests.get (_svc_url, headers=headers)
+        _res = spcToString(r.content)
+
+        # Query result is in CSV, 
+        res = convert(_res,outfmt='table')
+
+        #id_list = np.array(res, dtype=np.uint64)
         if out in [None, '']:
-            return id_list
+            #return res.as_array()
+            return res
         else:
             # Note:  memory expensive for large lists .....
-            csv_rows = ["{}".format(i) for i in id_list]
-            csv_text = "\n".join(csv_rows)
-            if out == '':
-                return csv_text
-            elif out.startswith('vos://'):
+            #csv_rows = ["{}".format(i) for i in id_list]
+            #csv_text = "\n".join(csv_rows)
+            csv_text = _res
+            if out.startswith('vos://'):
                 return storeClient.saveAs(csv_text, out)[0]
             else:
                 with open(out, "w") as fd:
                     fd.write(csv_text)
                     fd.write('\n')
                 return 'OK'
-    
-    
+
+
     # --------------------------------------------------------------------
     # GETSPEC -- Retrieve spectra for a list of objects.
     #
@@ -1368,6 +1406,12 @@ class specClient(object):
         **kw : dict
             Optional keyword arguments.  Supported keywords currently include:
     
+               values = None
+                   Spectrum vectors to return.
+               token = None
+                   Data Lab auth token.
+               id_col = None
+                   Name of ID column in input table.
                verbose = False
                    Print verbose messages during retrieval
                debug = False
@@ -1399,9 +1443,9 @@ class specClient(object):
         if profile in [None, '']: profile = self.svc_profile
 
         # Process optional parameters.
-        cutout = kw['cutout'] if 'cutout' in kw else ''
         values = kw['values'] if 'values' in kw else 'all'
         token = kw['token'] if 'token' in kw else self.auth_token
+        id_col = kw['id_col'] if 'id_col' in kw else None
         verbose = kw['verbose'] if 'verbose' in kw else False
         debug = kw['debug'] if 'debug' in kw else False
 
@@ -1415,46 +1459,17 @@ class specClient(object):
         if debug:
             print('getSpec(): in ty id_list = ' + str(type(id_list)))
 
-        if isinstance(id_list,str):
-            if os.path.exists(id_list):
-                # Read list from a local file.
-                with open(id_list, 'r') as fd:
-                    _list = fd.read()
-                id_list = _list.split('\n')[:-1]
-            elif id_list.startswith('vos://'):
-                # Read list from virtual storage.
-                id_list = storeClient.get(id_list).split('\n')[:-1]
-            else:
-                id_list = np.array([id_list])
-
-            el = id_list[0]
-            if isinstance(el,str):
-                cnv_list = []
-                if el[0] == '(':      # Assume a tuple
-                    for el in id_list:
-                        cnv_list.append(el[1:-1])
-                else:
-                    for el in id_list:
-                        cnv_list.append(int(el))
-                id_list = np.array(cnv_list)
-
-        elif isinstance(id_list,int):
-            id_list = [ id_list ]
-
-        elif isinstance(id_list,tuple):
-            id_list = [ id_list ]
-
-        elif not (isinstance(id_list, list) or isinstance(id_list, np.ndarray)):
-            id_list = np.array([id_list])
+        # Extract the ID list from the input value.
+        ids = self.extractIDList (id_list)
 
         # Force alignment for SpectrumCollection format.
         if fmt.lower() == 'spectrumcollection':
             align = True
                     
-        if debug: print('ty id_list: ' + str(type(id_list)))
+        if debug: print('ty ids: ' + str(type(ids)))
 
         # Initialize the payload.
-        data = {'id_list' : id_list,
+        data = {'id_list' : ids,
                 'values' : values,
                 'format' : fmt,
                 'align' : align,
@@ -1483,7 +1498,7 @@ class specClient(object):
             # If not aligning columns, request each spectrum individually
             # so we can return a list object.
             _data = []
-            for id in id_list:
+            for id in ids:
                 data['id_list'] = id
                 resp = requests.post (url, data=data, headers=headers)
                 if fmt.lower() == 'fits':
@@ -1502,7 +1517,7 @@ class specClient(object):
 
 
         if fmt.lower() == 'fits':
-            # Note: assumes a single file....FIXME
+            # Note: assumes a single file is requested.
             if len(_data) == 1:
                 return _data[0]
             else:
@@ -1533,10 +1548,6 @@ class specClient(object):
                         tb_data.append(self.to_Table(d))
                     return tb_data
             elif fmt.lower()[:8] == 'spectrum':
-                # FIXME: column names are SDSS-specific??
-                print ('_data.shape: ' + str(_data.shape))
-                print ('ty _data: ' + str(type(_data)))
-                print ('ty _data[0]: ' + str(type(_data[0])))
                 if len(_data) == 1:
                     return self.to_Spectrum1D(_data[0])
                 elif align:
@@ -2179,6 +2190,75 @@ class specClient(object):
         crl.close()
         return b_obj.getvalue()
 
+    def extractIDList(self, id_list, id_col=None):
+        '''Extract a 1-D array or single identifier from an input ID type.
+        '''
+        if isinstance(id_list, str):
+            # Input is a string.  This may be a text string of identifiers,
+            # a filename or a CSV table.
+            if os.path.exists(id_list):
+                # Read list from a local file.
+                with open(id_list, 'r') as fd:
+                    _list = fd.read()
+                ids = _list.split('\n')[:-1]
+            elif id_list.startswith('vos://'):
+                # Read list from virtual storage.
+                ids = storeClient.get(id_list).split('\n')[:-1]
+            elif id_list.find(',') > 0:      # CSV string?
+                pdata = convert (id_list, outfmt='pandas')
+                ids = np.array(pdata[self.conf['id_main']])
+            else:
+                ids = np.array([id_list])
+
+            el = ids[0]
+            if isinstance(el,str):
+                cnv_list = []
+                if el[0] == '(':      # Assume a tuple
+                    for el in ids:
+                        cnv_list.append(el[1:-1])
+                else:
+                    for el in ids:
+                        cnv_list.append(int(el))
+                ids = np.array(cnv_list)
+
+        elif isinstance(id_list,int) or isinstance(id_list,tuple):
+            # Input is a single integer or tuple type (e.g. a specobjid or
+            # a (plate,mjd,fiber), simply convert it to a list.
+            ids = [ id_list ]
+
+        elif isinstance(id_list, list):
+            # Input is already a list type, just return it.
+            ids = id_list
+
+        elif isinstance(id_list, pd.core.frame.DataFrame):
+            try:
+                ids = id_list[self.conf['id_main']].tolist()
+            except KeyError as e:
+                ids = None
+
+        elif isinstance(id_list, np.ndarray):
+            # Input is a numpy array.  If it's a 1-D array assume it contains
+            # identifiers and convert to a list, otherwise try to extract the
+            # id column.
+            if id_list.ndim == 1 and id_list.dtype.names is None:
+                ids = id_list.tolist()
+            else:
+                try:
+                    if id_list.dtype.names is not None:
+                        # structured array
+                        ids = id_list[self.conf['id_main']].tolist()
+                    else:
+                        # ndarray, use first column
+                        ids = id_list[:,0].tolist()
+                except ValueError as e:
+                    ids = None
+
+        else:
+            print('CONVERT TO NP.ARRAY')
+            ids = np.array(id_list[self.conf['id_main']])
+
+        return ids
+
 
 
 # ###################################
@@ -2225,28 +2305,6 @@ set_profile.__doc__ = sp_client.set_profile.__doc__
 get_profile.__doc__ = sp_client.get_profile.__doc__
 set_context.__doc__ = sp_client.set_context.__doc__
 get_context.__doc__ = sp_client.get_context.__doc__
-
-
-# ####################################################################
-#  Py2/Py3 Compatability Utilities
-# ####################################################################
-
-def spcToString(s):
-    '''spcToString -- Force a return value to be type 'string' for all
-                      Python versions.
-    '''
-    if is_py3:
-        if isinstance(s,bytes):
-            strval = str(s.decode())
-        elif isinstance(s,str):
-            strval = s
-    else:
-        if isinstance(s,bytes) or isinstance(s,unicode):
-            strval = str(s)
-        else:
-            strval = s
-
-    return strval
 
 
 
