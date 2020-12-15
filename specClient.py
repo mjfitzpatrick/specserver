@@ -1646,10 +1646,10 @@ class specClient(object):
                    sky = spec['sky']
                    ivar = spec['ivar']
             elif isinstance (spec, Spectrum1D):
-                wavelength = spec.spectral_axis#.value
-                flux = spec.flux#.value
-                model = spec.meta['model']*10**-17 * u.Unit('erg cm-2 s-1 AA-1')
-                sky = spec.meta['sky']*10**-17 * u.Unit('erg cm-2 s-1 AA-1')
+                wavelength = np.array(spec.spectral_axis.value)
+                flux = spec.flux
+                model = spec.meta['model']
+                sky = spec.meta['sky']
                 ivar = spec.meta['ivar']
 
         # Get the wavelength frame and redshift for the plot.
@@ -1657,7 +1657,7 @@ class specClient(object):
             z = float(kw['z']) 			# use supplied value
             del(kw['z'])
         else:
-            z = 0.0
+            z = None
             if _id is not None:
                 # Get the redshift from the catalog.
                 sql = 'select %s from %s where %s = %s' % \
@@ -1674,13 +1674,23 @@ class specClient(object):
             rest_frame = True
 
         if self.conf['rest_frame'] == 'false':
-            # Data is in the observed rest frame.
+            # Data is in the observed rest frame, convert to rest frame if we
+            # have a redshift.
             if rest_frame:
-                wavelength /= (1 + z)
+                if z is not None:
+                    wavelength /= (1 + z)
+                else:
+                    warnings.warn('Redshift required to plot in rest frame.')
+                    rest_frame = False
         else:
-            # Data is already in rest frame.
+            # Data is already in rest frame, convert to observed frame if we
+            # have a redshift.
             if not rest_frame:
-                wavelength *= (1 + z)
+                if z is not None:
+                    wavelength *= (1 + z)
+                else:
+                    warning.warn('Redshift required to plot in observed frame.')
+                    rest_frame = True
 
         self._plotSpec(wavelength, flux, model=model, sky=sky, ivar=ivar,
                        rest_frame=rest_frame, z=z, **kw)
@@ -2037,7 +2047,8 @@ class specClient(object):
                the x-range of the plot.
             '''
             if rest_frame == False and z is None:
-                print('Warning: Redshift required to mark lines in observed frame')
+                warnings.warn(
+                         'Redshift required to mark lines in observed frame')
                 return
 
             for ii in range(len(lines)):
@@ -2114,8 +2125,12 @@ class specClient(object):
             if rest_frame:
                 plt.xlabel('Rest Wavelength ($\AA$)', color=am_color)
             else:
-                plt.xlabel('Observed Wavelength ($\AA$)    z=%.3g' % z,
-                           color=am_color)
+                if z is not None:
+                    plt.xlabel('Observed Wavelength ($\AA$)    z=%.3g' % z,
+                               color=am_color)
+                else:
+                    plt.xlabel('Observed Wavelength ($\AA$)    z=(unknown)',
+                               color=am_color)
         else:
             plt.xlabel(xlabel, color=am_color)
         if ylabel is None:
