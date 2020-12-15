@@ -198,7 +198,6 @@ def contexts(request):
                     txt = txt + ("%16s   %s\n" % (p,str(conf['description'])))
             return web.Response(text=txt)
     else:
-        raw = config['contexts'][context].copy()
         raw = config['contexts'][context]
         return web.Response(text=json.dumps(raw))
 
