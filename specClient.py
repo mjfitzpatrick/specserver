@@ -1329,15 +1329,8 @@ class specClient(object):
             else:
                 sql += ' AND %s' % constraint
                 cond += ' AND %s' % constraint
-        if debug: print ('SQL = ' + sql)
-        if debug: print ('cond = ' + cond)
 
         # Query for the ID/fields.
-        #res = queryClient.query (sql=sql, fmt='csv').split('\n')[1:-1]
-        #if debug:
-        #    print ('res = ' + str(res))
-
-        # Try new query()
         _headers = self.getHeaders (None)
         _svc_url = '%s/query?' % self.svc_url
         _svc_url += "fields=%s&" % ofields
@@ -1353,14 +1346,10 @@ class specClient(object):
         # Query result is in CSV, 
         res = convert(_res,outfmt='table')
 
-        #id_list = np.array(res, dtype=np.uint64)
         if out in [None, '']:
-            #return res.as_array()
             return res
         else:
             # Note:  memory expensive for large lists .....
-            #csv_rows = ["{}".format(i) for i in id_list]
-            #csv_text = "\n".join(csv_rows)
             csv_text = _res
             if out.startswith('vos://'):
                 return storeClient.saveAs(csv_text, out)[0]
