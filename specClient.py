@@ -4,7 +4,7 @@
 #
 
 __authors__ = 'Mike Fitzpatrick <fitz@noao.edu>'
-__version__ = 'v1.1.0'
+__version__ = 'v1.2.0'
 
 
 '''
@@ -148,7 +148,8 @@ DEF_SERVICE_PROFILE = "default"
 DEF_SERVICE_CONTEXT = "default"
 
 # Use a /tmp/AM_DEBUG file as a way to turn on debugging in the client code.
-DEBUG = os.path.isfile('/tmp/SDC_DEBUG')
+DEBUG = os.path.isfile('/tmp/SPEC_DEBUG')
+VERBOSE = os.path.isfile('/tmp/SPEC_VERBOSE')
 
 
 # ######################################################################
@@ -845,6 +846,7 @@ class specClient(object):
         self.hostip = THIS_IP
         self.hostname = THIS_HOST
         self.debug = DEBUG                      # interface debug flag
+        self.verbose = VERBOSE                  # interface verbose flag
 
         # Get the server-side config for the context.  Note this must also
 	# be updated whenever we do a set_svc_url() or set_context().
@@ -1292,8 +1294,8 @@ class specClient(object):
 
         timeout = kw['timeout'] if 'timeout' in kw else 600
         token = kw['token'] if 'token' in kw else self.auth_token
-        verbose = kw['verbose'] if 'verbose' in kw else False
-        debug = kw['debug'] if 'debug' in kw else False
+        verbose = kw['verbose'] if 'verbose' in kw else self.verbose
+        debug = kw['debug'] if 'debug' in kw else self.debug
 
         # Set service call headers.
         headers = {'Content-Type': 'text/ascii',
@@ -1446,8 +1448,8 @@ class specClient(object):
         values = kw['values'] if 'values' in kw else 'all'
         token = kw['token'] if 'token' in kw else self.auth_token
         id_col = kw['id_col'] if 'id_col' in kw else None
-        verbose = kw['verbose'] if 'verbose' in kw else False
-        debug = kw['debug'] if 'debug' in kw else False
+        verbose = kw['verbose'] if 'verbose' in kw else self.verbose
+        debug = kw['debug'] if 'debug' in kw else self.debug
 
         # Set service call headers.
         headers = {'Content-Type' : 'application/x-www-form-urlencoded',
@@ -1509,13 +1511,6 @@ class specClient(object):
             if fmt.lower() != 'fits':
                 _data = np.array(_data)
 
-        if debug:
-            print ('ty data: ' + str(type(_data)))
-            print ('len data: ' + str(len(_data)))
-            print ('shape data: ' + str(_data.shape))
-            print ('size data: ' + str(sys.getsizeof(_data)))
-
-
         if fmt.lower() == 'fits':
             # Note: assumes a single file is requested.
             if len(_data) == 1:
@@ -1523,15 +1518,12 @@ class specClient(object):
             else:
                 return _data
         else:
-            if debug:
-                print('len _data: ' + str(len(_data)))
-                print('typ _data: ' + str(type(_data)))
-            if fmt.lower()[:5] == 'numpy':
+            if fmt.lower()[:5] == 'numpy':		# NUMPY array
                 if len(_data) == 1:
                     return _data[0]
                 else:
                     return _data
-            elif fmt.lower()[:6] == 'pandas':
+            elif fmt.lower()[:6] == 'pandas':		# Pandas DataFrame
                 if len(_data) == 1:
                     return self.to_pandas(_data[0])
                 else:
@@ -1539,7 +1531,7 @@ class specClient(object):
                     for d in _data:
                         pd_data.append(self.to_pandas(d))
                     return pd_data
-            elif fmt.lower()[:6] == 'tables':
+            elif fmt.lower()[:6] == 'tables':		# Astropy Table
                 if len(_data) == 1:
                     return self.to_Table(_data[0])
                 else:
@@ -1547,7 +1539,7 @@ class specClient(object):
                     for d in _data:
                         tb_data.append(self.to_Table(d))
                     return tb_data
-            elif fmt.lower()[:8] == 'spectrum':
+            elif fmt.lower()[:8] == 'spectrum':		# Spectrum1D
                 if len(_data) == 1:
                     return self.to_Spectrum1D(_data[0])
                 elif align:
@@ -1596,10 +1588,18 @@ class specClient(object):
             Optional keyword arguments.  Supported keywords currently include:
 
                 rest_frame - Whether or not to plot the spectra in the
-                             rest-frame  (def: True)
+                             rest-frame. If True, the wavelengths are assumed
+	  		     to have been already shifted and no 'z' value is
+			     required.  If False, wavelengths are assumed to
+			     be in observed frame and a 'z' value is required 
+			     to overplot absorption/emission lines. (def: True)
                          z - Redshift value (def: None)
                       xlim - Set the xrange of the plot
                       ylim - Set the yrange of the plot
+                     title - Plot title (def: object ID)
+                    xlabel - Plot x-axis label (def: wavelength)
+                    ylabel - Plot y-axis label (def: flux units)
+                        out - Saved output filename.
     
                     values - A comma-delimited string of which values to plot,
                              a combination of 'flux,model,sky,ivar'
@@ -1628,14 +1628,19 @@ class specClient(object):
                 spec.plot (specID, context='sdss_dr16', out='vos://spec.png')
         '''
 
+        verbose = kw['verbose'] if 'verbose' in kw else self.verbose
+        debug = kw['debug'] if 'debug' in kw else self.debug
+
         if context in [None, '']: context = self.svc_context
         if profile in [None, '']: profile = self.svc_profile
 
         # See whether we've been passed a spectrum ID or a data.
+        _id = None
         if isinstance(spec, int) or \
-           isinstance(spec, np.uint64) or \
+           isinstance(spec, np.int64) or isinstance(spec, np.uint64) or \
            isinstance(spec, tuple) or \
            isinstance(spec, str):
+               _id = spec
                dlist = sp_client.getSpec(spec, context=context,profile=profile)
                data = dlist
                wavelength = 10.0**data['loglam']
@@ -1658,7 +1663,38 @@ class specClient(object):
                 sky = spec.meta['sky']*10**-17 * u.Unit('erg cm-2 s-1 AA-1')
                 ivar = spec.meta['ivar']
 
-        self._plotSpec(wavelength, flux, model=model, sky=sky, ivar=ivar, **kw)
+        # Get the wavelength frame and redshift for the plot.
+        if 'z' in kw:
+            z = float(kw['z']) 			# use supplied value
+            del(kw['z'])
+        else:
+            z = 0.0
+            if _id is not None:
+                # Get the redshift from the catalog.
+                sql = 'select %s from %s where %s = %s' % \
+                    (self.conf['z'], self.conf['catalog'], \
+                    self.conf['id_main'], _id)
+                res = queryClient.query (sql=sql,fmt='csv').split('\n')[1:-1][0]
+                z = float(res)
+                if debug: print ('z = ' + str(z))
+
+        if 'rest_frame' in kw:
+            rest_frame = (str(kw['rest_frame']).lower() == 'true') 
+            del(kw['rest_frame'])
+        else:
+            rest_frame = True
+
+        if self.conf['rest_frame'] == 'false':
+            # Data is in the observed rest frame.
+            if rest_frame:
+                wavelength /= (1 + z)
+        else:
+            # Data is already in rest frame.
+            if not rest_frame:
+                wavelength *= (1 + z)
+
+        self._plotSpec(wavelength, flux, model=model, sky=sky, ivar=ivar,
+                       rest_frame=rest_frame, z=z, **kw)
     
     
     # --------------------------------------------------------------------
@@ -1821,8 +1857,8 @@ class specClient(object):
 
         # Process optional parameters.
         token = kw['token'] if 'token' in kw else self.auth_token
-        verbose = kw['verbose'] if 'verbose' in kw else False
-        debug = kw['debug'] if 'debug' in kw else False
+        verbose = kw['verbose'] if 'verbose' in kw else self.verbose
+        debug = kw['debug'] if 'debug' in kw else self.debug
         fmt = kw['fmt'] if 'fmt' in kw else 'png'
 
         # Set service call headers.
@@ -1920,8 +1956,8 @@ class specClient(object):
         width = kw['width'] if 'width' in kw else 0
         height = kw['height'] if 'height' in kw else 0
         token = kw['token'] if 'token' in kw else self.auth_token
-        verbose = kw['verbose'] if 'verbose' in kw else False
-        debug = kw['debug'] if 'debug' in kw else False
+        verbose = kw['verbose'] if 'verbose' in kw else self.verbose
+        debug = kw['debug'] if 'debug' in kw else self.debug
         fmt = kw['fmt'] if 'fmt' in kw else 'png'
 
         # Set service call headers.
@@ -1970,12 +2006,25 @@ class specClient(object):
         """Plot a spectrum.
         
         Inputs:
-            * spec = 
+            * wavelength - Array of spectrum wavelength values to plot.
+            * flux -  Array of spectrum flux values to plot.
+            * model -  Array of model spectrum values to plot (if not None).
+            * sky -  Array of sky spectrum values to plot (if not None).
+            * ivar -  Array of inverse-variance values to plot (if not None).
+
             * rest_frame - Whether or not to plot the spectra in the
-                           rest-frame.  (def: True)
+                           rest-frame. If True, the wavelengths are assumed
+			   to have been already shifted and no 'z' value is
+			   required.  If False, wavelengths are assumed to
+			   be in observed frame and a 'z' value is required 
+			   to overplot absorption/emission lines. (def: True)
             * z - Redshift (def: None)
-            * xlim - Setting the xrange of the plot
-            * ylim - Setting the yrange of the plot
+            * xlim - Setting the xrange of the plot (e.g. '[5000.0,6000.0]')
+            * ylim - Setting the yrange of the plot (e.g. '[0.0,25.0]')
+            * title - Plot title (def: object ID)
+            * xlabel - Plot x-axis label (def: wavelength)
+            * ylabel - Plot y-axis label (def: flux units)
+            * out - Saved output filename.
     
         Optional kwargs:
             * values - A comma-delimited string of which values to plot, a
@@ -1993,17 +2042,19 @@ class specClient(object):
             * ivar_args - Plotting kwargs for the ivar.
             * sky_args - Plotting kwargs for the sky.
         """
-        #from astropy.visualization import astropy_mpl_style
-        #plt.style.use(astropy_mpl_style)
     
         def labelLines (lines, ax, color, yloc):
-            '''This is for selecting only those lines that are visible in
+            '''Select only those lines that are visible in
                the x-range of the plot.
             '''
+            if rest_frame == False and z is None:
+                print('Warning: Redshift required to mark lines in observed frame')
+                return
+
             for ii in range(len(lines)):
                 # If rest_frame=False, shift lines to the observed frame.
                 lam = lines[ii]['lambda']
-                if (rest_frame == False):
+                if rest_frame == False:
                     lam = lam * (1+z)
                 # Plot only lines within the x-range of the plot.
                 if ((lam > xbounds[0]) & (lam < xbounds[1])):
@@ -2211,7 +2262,7 @@ class specClient(object):
                 ids = np.array([id_list])
 
             el = ids[0]
-            if isinstance(el,str):
+            if isinstance(el, str):
                 cnv_list = []
                 if el[0] == '(':      # Assume a tuple
                     for el in ids:
@@ -2221,10 +2272,13 @@ class specClient(object):
                         cnv_list.append(int(el))
                 ids = np.array(cnv_list)
 
-        elif isinstance(id_list,int) or isinstance(id_list,tuple):
-            # Input is a single integer or tuple type (e.g. a specobjid or
-            # a (plate,mjd,fiber), simply convert it to a list.
-            ids = [ id_list ]
+        elif isinstance(id_list, int) or \
+             isinstance(id_list, np.int64) or \
+             isinstance(id_list, np.uint64) or\
+             isinstance(id_list, tuple):
+                 # Input is a single integer or tuple type (e.g. a specobjid
+                 # or a (plate,mjd,fiber), simply convert it to a list.
+                 ids = [ id_list ]
 
         elif isinstance(id_list, list):
             # Input is already a list type, just return it.
@@ -2254,7 +2308,6 @@ class specClient(object):
                     ids = None
 
         else:
-            print('CONVERT TO NP.ARRAY')
             ids = np.array(id_list[self.conf['id_main']])
 
         return ids
