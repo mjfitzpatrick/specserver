@@ -14614,6 +14614,7 @@ div#notebook {
 <li><a href="#query">Query for Spectra</a><ul>
 <li><a href="#alt_cats">Using Alternate Catalogs</a></li>
 <li><a href="#constrain">Constraining query results</a></li>
+<li><a href="#allsky">All-Sky Queries and Mutltiple Catalog Fields</a></li>
 <li><a href="#out_opts">Output Options</a></li>
 </ul>
 </li>
@@ -14763,10 +14764,7 @@ UTILITY METHODS:
 <span class="o">%</span><span class="k">matplotlib</span> inline
 
 <span class="c1"># Data Lab imports</span>
-<span class="c1">#from dl import specClient as spec         # primary spectral data client interface        # DEV UNCOMMENT</span>
-<span class="kn">import</span> <span class="nn">specClient</span> <span class="k">as</span> <span class="nn">spec</span>                 <span class="c1"># when using the specClient.py file directly     # DEV DELETE ME</span>
-<span class="n">spec</span><span class="o">.</span><span class="n">set_svc_url</span><span class="p">(</span><span class="s1">&#39;http://gp07.datalab.noao.edu:6998/spec&#39;</span><span class="p">)</span>                                 <span class="c1"># DEV DELETE ME</span>
-
+<span class="kn">from</span> <span class="nn">dl</span> <span class="kn">import</span> <span class="n">specClient</span> <span class="k">as</span> <span class="n">spec</span>         <span class="c1"># primary spectral data client interface</span>
 <span class="kn">from</span> <span class="nn">dl</span> <span class="kn">import</span> <span class="n">storeClient</span>                <span class="c1"># needed to use virtual storage</span>
 <span class="kn">from</span> <span class="nn">dl</span> <span class="kn">import</span> <span class="n">queryClient</span>                <span class="c1"># needed to query Data Lab catalogs</span>
 <span class="kn">from</span> <span class="nn">dl</span> <span class="kn">import</span> <span class="n">authClient</span>                 <span class="c1"># needed for login authentication</span>
@@ -15481,6 +15479,63 @@ Current context: sdss_dr16
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p>As you can see, the results are different than for the same position used in the previous cell.</p>
+<p><a class="anchor" id="allsky"></a></p>
+<h2 id="All-Sky-Queries-and-Mutltiple-Catalog-Fields">All-Sky Queries and Mutltiple Catalog Fields<a class="anchor-link" href="#All-Sky-Queries-and-Mutltiple-Catalog-Fields">&#182;</a></h2><p>If no positional arguments are supplied to the '<em>query()</em>' call, an 'all-sky' query will be performed.  Note that a '<em>constraint</em>' SHOULD be specified to avoid returning all rows in the catalog.</p>
+<p>The optional '<em>fields</em>' parameter can be specified to request other values from the catalog in the query (the default object ID field is always returned) in a single result table.  That result table can be used when retrieving the data without change.  For example, to get the IDs and redshifts from an all-sky query of objects in a specific redshift range:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">tab</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="s1">&#39;specobjid,z,zerr&#39;</span><span class="p">,</span> <span class="n">constraint</span><span class="o">=</span><span class="s1">&#39;z between 0.5 and 0.6 limit 10&#39;</span><span class="p">)</span>
+<span class="n">tab</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[17]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<i>Table length=10</i>
+<table id="table139773726232720" class="table-striped table-bordered table-condensed">
+<thead><tr><th>specobjid</th><th>z</th><th>zerr</th></tr></thead>
+<thead><tr><th>int64</th><th>float64</th><th>float64</th></tr></thead>
+<tr><td>1871264936454285312</td><td>0.542203</td><td>2.25118</td></tr>
+<tr><td>1872377917149833216</td><td>0.508858</td><td>0.208671</td></tr>
+<tr><td>1872500512696330240</td><td>0.553742</td><td>0.000119294</td></tr>
+<tr><td>1871347674704275456</td><td>0.543648</td><td>0.366152</td></tr>
+<tr><td>1872511782690514944</td><td>0.588384</td><td>3.15531e-05</td></tr>
+<tr><td>1872546142428882944</td><td>0.51061</td><td>0.305492</td></tr>
+<tr><td>2676298230383352832</td><td>0.545724</td><td>0.000221196</td></tr>
+<tr><td>2676361177424043008</td><td>0.504727</td><td>0.000101603</td></tr>
+<tr><td>2676399110575201280</td><td>0.514419</td><td>0.707528</td></tr>
+<tr><td>2676376020831017984</td><td>0.536907</td><td>1.44516</td></tr>
+</table>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
 <p><a class="anchor" id="out_opts"></a></p>
 <h2 id="Output-Options">Output Options<a class="anchor-link" href="#Output-Options">&#182;</a></h2><p>Normally, <em>query()</em> results are returned to the caller as a list object identifiers (even when only one object is found).  However, the ID list may be saved as a text file for later use by setting the <em>out</em> parameter to be a local filename or a virtual storage location.  In that case, identifiers are saved one-per-row and the <em>query()</em> method returns either 'OK' or an error message.</p>
 <h3 id="Example-1)--Return-output-to-caller">Example 1)  Return output to caller<a class="anchor-link" href="#Example-1)--Return-output-to-caller">&#182;</a></h3>
@@ -15489,7 +15544,7 @@ Current context: sdss_dr16
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="prompt input_prompt">In&nbsp;[18]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">id_list</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="mf">30.0</span><span class="p">,</span><span class="mf">1.0</span><span class="p">,</span><span class="mf">0.025</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>  <span class="c1"># return output to the caller</span>
@@ -15529,7 +15584,7 @@ Current context: sdss_dr16
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[18]:</div>
+<div class="prompt input_prompt">In&nbsp;[19]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">lfname</span> <span class="o">=</span> <span class="s1">&#39;test.id&#39;</span>
@@ -15572,7 +15627,7 @@ Local file:  SUCCESS
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[19]:</div>
+<div class="prompt input_prompt">In&nbsp;[20]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">vfname</span> <span class="o">=</span> <span class="s1">&#39;vos://test.id&#39;</span>
@@ -15608,7 +15663,7 @@ VOS file:  SUCCESS
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[20]:</div>
+<div class="prompt input_prompt">In&nbsp;[21]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Clean up</span>
@@ -15693,7 +15748,7 @@ ivar        The inverse variance array
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[21]:</div>
+<div class="prompt input_prompt">In&nbsp;[22]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Utility routine to print information about a spectrum object.</span>
@@ -15729,7 +15784,7 @@ ivar        The inverse variance array
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[22]:</div>
+<div class="prompt input_prompt">In&nbsp;[23]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span> 
@@ -15762,8 +15817,8 @@ ivar        The inverse variance array
 Shape: (618, 3858)
 Element Type: &lt;class &#39;numpy.ndarray&#39;&gt;
 -----------
-CPU times: user 113 ms, sys: 243 ms, total: 355 ms
-Wall time: 18.3 s
+CPU times: user 117 ms, sys: 256 ms, total: 374 ms
+Wall time: 17.9 s
 </pre>
 </div>
 </div>
@@ -15797,7 +15852,7 @@ Wall time: 18.3 s
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[23]:</div>
+<div class="prompt input_prompt">In&nbsp;[24]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -15843,8 +15898,8 @@ Format: tables
  Type: &lt;class &#39;astropy.table.table.Table&#39;&gt;
   Len: 3816
 -----------
-CPU times: user 98.6 ms, sys: 17.6 ms, total: 116 ms
-Wall time: 197 ms
+CPU times: user 104 ms, sys: 8.57 ms, total: 112 ms
+Wall time: 190 ms
 </pre>
 </div>
 </div>
@@ -15864,7 +15919,7 @@ Wall time: 197 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[24]:</div>
+<div class="prompt input_prompt">In&nbsp;[25]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -15897,8 +15952,8 @@ Element Type: &lt;class &#39;numpy.int64&#39;&gt;
 -----------
 No. of Spectra: 100
 
-CPU times: user 19.6 ms, sys: 4.12 ms, total: 23.7 ms
-Wall time: 550 ms
+CPU times: user 19.4 ms, sys: 3.08 ms, total: 22.5 ms
+Wall time: 556 ms
 </pre>
 </div>
 </div>
@@ -15917,7 +15972,7 @@ Wall time: 550 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[25]:</div>
+<div class="prompt input_prompt">In&nbsp;[26]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span> 
@@ -15947,8 +16002,8 @@ Wall time: 550 ms
 Shape: (100, 3866)
 Element Type: &lt;class &#39;numpy.ndarray&#39;&gt;
 -----------
-CPU times: user 30.9 ms, sys: 44.4 ms, total: 75.3 ms
-Wall time: 456 ms
+CPU times: user 28.6 ms, sys: 37.1 ms, total: 65.7 ms
+Wall time: 439 ms
 </pre>
 </div>
 </div>
@@ -15967,7 +16022,7 @@ Wall time: 456 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[26]:</div>
+<div class="prompt input_prompt">In&nbsp;[27]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span> 
@@ -15999,8 +16054,8 @@ Wall time: 456 ms
 Shape: (100, 4655)
 Element Type: &lt;class &#39;numpy.ndarray&#39;&gt;
 -----------
-CPU times: user 46.8 ms, sys: 35.8 ms, total: 82.6 ms
-Wall time: 739 ms
+CPU times: user 40.9 ms, sys: 37.9 ms, total: 78.8 ms
+Wall time: 742 ms
 </pre>
 </div>
 </div>
@@ -16021,7 +16076,7 @@ Wall time: 739 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[27]:</div>
+<div class="prompt input_prompt">In&nbsp;[28]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Specify an identifier tuple as (plate,mjd,fiber)</span>
@@ -16070,7 +16125,7 @@ Wall time: 739 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[28]:</div>
+<div class="prompt input_prompt">In&nbsp;[29]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">qplot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">overplot</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -16189,7 +16244,7 @@ Wall time: 739 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[29]:</div>
+<div class="prompt input_prompt">In&nbsp;[30]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Create a spectrum ID list for the plot</span>
@@ -16236,7 +16291,7 @@ Wall time: 739 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[30]:</div>
+<div class="prompt input_prompt">In&nbsp;[31]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Plot using a retrieved spectrum</span>
@@ -16289,7 +16344,7 @@ Wall time: 739 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[31]:</div>
+<div class="prompt input_prompt">In&nbsp;[32]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -16316,21 +16371,21 @@ Wall time: 739 ms
 <pre> Type: &lt;class &#39;PIL.PngImagePlugin.PngImageFile&#39;&gt;
 object of type &#39;PngImageFile&#39; has no len()
 -----------
-CPU times: user 40.2 ms, sys: 3.18 ms, total: 43.3 ms
-Wall time: 45.7 ms
+CPU times: user 37.3 ms, sys: 3.1 ms, total: 40.4 ms
+Wall time: 42.9 ms
 </pre>
 </div>
 </div>
 
 <div class="output_area">
 
-    <div class="prompt output_prompt">Out[31]:</div>
+    <div class="prompt output_prompt">Out[32]:</div>
 
 
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>&lt;matplotlib.image.AxesImage at 0x7fc4b06d0790&gt;</pre>
+<pre>&lt;matplotlib.image.AxesImage at 0x7f1f9833f490&gt;</pre>
 </div>
 
 </div>
@@ -16365,7 +16420,7 @@ Wall time: 45.7 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[32]:</div>
+<div class="prompt input_prompt">In&nbsp;[33]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -16417,8 +16472,8 @@ object of type &#39;PngImageFile&#39; has no len()
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>CPU times: user 78.8 ms, sys: 5.31 ms, total: 84.1 ms
-Wall time: 159 ms
+<pre>CPU times: user 91.2 ms, sys: 8.4 ms, total: 99.6 ms
+Wall time: 219 ms
 </pre>
 </div>
 </div>
@@ -16437,7 +16492,7 @@ Wall time: 159 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[33]:</div>
+<div class="prompt input_prompt">In&nbsp;[34]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -16493,8 +16548,8 @@ class="unconfined"
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>CPU times: user 15.3 ms, sys: 4.73 ms, total: 20 ms
-Wall time: 100 ms
+<pre>CPU times: user 16 ms, sys: 4.18 ms, total: 20.2 ms
+Wall time: 98.5 ms
 </pre>
 </div>
 </div>
@@ -16514,7 +16569,7 @@ Wall time: 100 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[34]:</div>
+<div class="prompt input_prompt">In&nbsp;[35]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -16564,8 +16619,8 @@ Wall time: 100 ms
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>CPU times: user 754 ms, sys: 13.3 ms, total: 767 ms
-Wall time: 1.9 s
+<pre>CPU times: user 804 ms, sys: 8.26 ms, total: 813 ms
+Wall time: 1.95 s
 </pre>
 </div>
 </div>
@@ -16584,7 +16639,7 @@ Wall time: 1.9 s
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[35]:</div>
+<div class="prompt input_prompt">In&nbsp;[36]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -16640,8 +16695,8 @@ class="unconfined"
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>CPU times: user 27.4 ms, sys: 2.51 ms, total: 29.9 ms
-Wall time: 442 ms
+<pre>CPU times: user 24.8 ms, sys: 5.12 ms, total: 29.9 ms
+Wall time: 403 ms
 </pre>
 </div>
 </div>
@@ -16667,7 +16722,7 @@ Wall time: 442 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[36]:</div>
+<div class="prompt input_prompt">In&nbsp;[37]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">spec1d</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">to_Spectrum1D</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
@@ -16708,7 +16763,7 @@ Wall time: 442 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[37]:</div>
+<div class="prompt input_prompt">In&nbsp;[38]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">to_pandas</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
@@ -16751,7 +16806,7 @@ Shape: (4655, 8)
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[38]:</div>
+<div class="prompt input_prompt">In&nbsp;[39]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">tab</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">to_Table</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
@@ -16793,7 +16848,7 @@ Shape: (4655, 8)
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[39]:</div>
+<div class="prompt input_prompt">In&nbsp;[40]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">end_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
@@ -16814,7 +16869,7 @@ Shape: (4655, 8)
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>Notebook run time: 37.4 sec
+<pre>Notebook run time: 36.6 sec
 </pre>
 </div>
 </div>

@@ -77,11 +77,13 @@ class sdssService(Service):
             print(qstring)
             res = qc.query (sql=qstring, fmt='table')
         else:
+            _where = '' if cond[:5].lower() in ['order','limit'] else 'WHERE'
             if sdss_id_main in fields:
-                qstring = 'SELECT %s FROM %s WHERE %s' % (fields, catalog, cond)
+                qstring = 'SELECT %s FROM %s %s %s' % \
+                          (fields, catalog, _where, cond)
             else:
-                qstring = 'SELECT %s,%s FROM %s WHERE %s' % \
-                          (sdss_id_main, fields, catalog, cond)
+                qstring = 'SELECT %s,%s FROM %s %s %s' % \
+                          (sdss_id_main, fields, catalog, _where, cond)
 
             # Query the table and force the object ID to be an unsigned int.
             res = qc.query (sql=qstring, fmt='table')
