@@ -1336,7 +1336,7 @@ class specClient(object):
         # fields or constraints.
         cond = pquery
         if constraint not in [None, '']:
-            if constraint[:5].lower() in ['limit', 'order'] or pquery == '':
+            if constraint.strip()[:5].lower() in ['limit', 'order'] or pquery == '':
                 cond += ' %s' % constraint
             else:
                 cond += ' AND %s' % constraint
@@ -1345,14 +1345,14 @@ class specClient(object):
         headers = self.getHeaders (None)
 
         # Query for the ID/fields.
-        _svc_url = '%s/query?' % self.svc_url      # base service URL
-        _svc_url += 'id=&'	                   # no ID value
-        _svc_url += 'fields=%s&' % ofields         # fields to retrieve
-        _svc_url += 'catalog=%s&' % catalog        # catalog to query
-        _svc_url += 'cond=%s&' % quote_plus(cond)  # WHERE condition
-        _svc_url += 'context=%s&' % context        # dataset context
-        _svc_url += 'profile=%s&' % profile        # service profile
-        _svc_url += 'debug=%s&' % debug            # system debug flag
+        _svc_url = '%s/query?' % self.svc_url           # base service URL
+        _svc_url += 'id=&'	                        # no ID value
+        _svc_url += 'fields=%s&' % quote_plus(ofields)  # fields to retrieve
+        _svc_url += 'catalog=%s&' % quote_plus(catalog) # catalog to query
+        _svc_url += 'cond=%s&' % quote_plus(cond)       # WHERE condition
+        _svc_url += 'context=%s&' % context             # dataset context
+        _svc_url += 'profile=%s&' % profile             # service profile
+        _svc_url += 'debug=%s&' % debug                 # system debug flag
         _svc_url += 'verbose=%s' % False           # system verbose flag
         r = requests.get (_svc_url, headers=headers)
         _res = spcToString(r.content)
