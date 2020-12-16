@@ -14693,10 +14693,7 @@ div#notebook {
 <span class="o">%</span><span class="k">matplotlib</span> inline
 
 <span class="c1"># Data Lab imports</span>
-<span class="c1">#from dl import specClient as spec         # primary spectral data client interface        # DEV UNCOMMENT</span>
-<span class="kn">import</span> <span class="nn">specClient</span> <span class="k">as</span> <span class="nn">spec</span>                 <span class="c1"># when using the specClient.py file directly     # DEV DELETE ME</span>
-<span class="n">spec</span><span class="o">.</span><span class="n">set_svc_url</span><span class="p">(</span><span class="s1">&#39;http://gp07.datalab.noao.edu:6998/spec&#39;</span><span class="p">)</span>                                 <span class="c1"># DEV DELETE ME</span>
-
+<span class="kn">from</span> <span class="nn">dl</span> <span class="kn">import</span> <span class="n">specClient</span> <span class="k">as</span> <span class="n">spec</span>         <span class="c1"># primary spectral data client interface</span>
 <span class="kn">from</span> <span class="nn">dl</span> <span class="kn">import</span> <span class="n">storeClient</span>                <span class="c1"># needed to use virtual storage</span>
 <span class="kn">from</span> <span class="nn">dl</span> <span class="kn">import</span> <span class="n">queryClient</span>                <span class="c1"># needed to query Data Lab catalogs</span>
 <span class="kn">from</span> <span class="nn">dl</span> <span class="kn">import</span> <span class="n">authClient</span>                 <span class="c1"># needed for login authentication</span>
