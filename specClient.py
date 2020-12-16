@@ -850,7 +850,7 @@ class specClient(object):
 
         # Get the server-side config for the context.  Note this must also
 	# be updated whenever we do a set_svc_url() or set_context().
-        self.conf = self._list_contexts(context) 
+        self.context = self._list_contexts(context) 
 
 
     # Standard Data Lab service methods.
@@ -875,7 +875,7 @@ class specClient(object):
             specClient.set_svc_url("http://localhost:7001/")
         '''
         self.svc_url = spcToString(svc_url.strip('/'))
-        self.conf = self._list_contexts(context=self.svc_context)
+        self.context = self._list_contexts(context=self.svc_context)
 
     def get_svc_url(self):
         '''Return the currently-used Spectroscopic Data Service URL.
@@ -968,7 +968,7 @@ class specClient(object):
         url = self.svc_url + '/validate?what=context&value=%s' % context
         if spcToString(self.curl_get(url)) == 'OK':
             self.svc_context = spcToString(context)
-            self.conf = self._list_contexts(context=self.svc_context)
+            self.context = self._list_contexts(context=self.svc_context)
             return 'OK'
         else:
             raise Exception('Invalid context "%s"' % context)
@@ -1286,8 +1286,8 @@ class specClient(object):
         if profile in [None, '']: profile = self.svc_profile
 
         # Process optional keyword arguments.
-        ofields = kw['fields'] if 'fields' in kw else self.conf['id_main']
-        catalog = kw['catalog'] if 'catalog' in kw else self.conf['catalog']
+        ofields = kw['fields'] if 'fields' in kw else self.context['id_main']
+        catalog = kw['catalog'] if 'catalog' in kw else self.context['catalog']
         if context == 'default' or context.startswith('sdss'):
             if ofields == 'tuple':
                 ofields = 'plate,mjd,fiberid,run2d'
@@ -1297,17 +1297,7 @@ class specClient(object):
         verbose = kw['verbose'] if 'verbose' in kw else self.verbose
         debug = kw['debug'] if 'debug' in kw else self.debug
 
-        # Set service call headers.
-        headers = {'Content-Type': 'text/ascii',
-                   'X-DL-TimeoutRequest': str(timeout),
-                   'X-DL-ClientVersion': __version__,
-                   'X-DL-OriginIP': self.hostip,
-                   'X-DL-OriginHost': self.hostname,
-                   'X-DL-AuthToken': token}
-
-        # Build the query URL string.
-        base_url = '%s/query?' % self.qm_svc_url
-
+        # Build the query URL constraint clause.
         _size = size
         if region is not None:
             pquery = "q3c_poly_query(ra,dec,ARRAY%s)" % region
@@ -1317,37 +1307,40 @@ class specClient(object):
         else:
             pquery = "q3c_radial_query(ra,dec,%f,%f,%f)" % (ra, dec, _size)
 
-        # Create the query string for the IDs.
-        sql = 'SELECT %s FROM %s WHERE %s' % (ofields, catalog, pquery)
-
+        # Create the query string for the IDs, adding any user-defined
+        # fields or constraints.
         cond = pquery
-        # Add any user-defined constraint.
         if constraint not in [None, '']:
             if constraint[:5].lower() in ['limit', 'order']:
-                sql += ' %s' % constraint
                 cond += ' %s' % constraint
             else:
-                sql += ' AND %s' % constraint
                 cond += ' AND %s' % constraint
 
+        # Set service call headers.
+        headers = self.getHeaders (None)
+
         # Query for the ID/fields.
-        _headers = self.getHeaders (None)
-        _svc_url = '%s/query?' % self.svc_url
-        _svc_url += "fields=%s&" % ofields
-        _svc_url += "catalog=%s&" % catalog
-        _svc_url += "cond=%s&" % quote_plus(cond)
-        _svc_url += "context=%s&" % context
-        _svc_url += "profile=%s&" % profile
-        _svc_url += "debug=%s&" % debug
-        _svc_url += "verbose=%s" % False
+        _svc_url = '%s/query?' % self.svc_url      # base service URL
+        _svc_url += "id=&"	                   # no ID value
+        _svc_url += "fields=%s&" % ofields         # fields to retrieve
+        _svc_url += "catalog=%s&" % catalog        # catalog to query
+        _svc_url += "cond=%s&" % quote_plus(cond)  # WHERE condition
+        _svc_url += "context=%s&" % context        # dataset context
+        _svc_url += "profile=%s&" % profile        # service profile
+        _svc_url += "debug=%s&" % debug            # system debug flag
+        _svc_url += "verbose=%s" % False           # system verbose flag
         r = requests.get (_svc_url, headers=headers)
         _res = spcToString(r.content)
 
-        # Query result is in CSV, 
+        # Query result is in CSV, convert to a named table.
         res = convert(_res,outfmt='table')
 
         if out in [None, '']:
-            return res
+            if ofields.count(',') > 0:
+                return res 
+            else:
+                #return np.array(res[self.context['id_main']], dtype=np.uint64)
+                return np.array(res[self.context['id_main']])
         else:
             # Note:  memory expensive for large lists .....
             csv_text = _res
@@ -1659,13 +1652,21 @@ class specClient(object):
         else:
             z = None
             if _id is not None:
-                # Get the redshift from the catalog.
-                sql = 'select %s from %s where %s = %s' % \
-                    (self.conf['z'], self.conf['catalog'], \
-                    self.conf['id_main'], _id)
-                res = queryClient.query (sql=sql,fmt='csv').split('\n')[1:-1][0]
-                z = float(res)
-                if debug: print ('z = ' + str(z))
+                # Query for the redshift field of the catalog.
+                headers = self.getHeaders (None)
+                _svc_url = '%s/query?' % self.svc_url      # base service URL
+                _svc_url += "id=%s&" % str(_id)
+                _svc_url += "fields=%s&" % self.context['z']
+                _svc_url += "catalog=%s&" % self.context['catalog']
+                _svc_url += "cond=&"
+                _svc_url += "context=%s&" % context
+                _svc_url += "profile=%s&" % profile
+                _svc_url += "debug=%s&" % debug
+                _svc_url += "verbose=%s" % verbose
+                r = requests.get (_svc_url, headers=headers)
+                if r.status_code == 200:
+                    _val = spcToString(r.content).split('\n')[1:-1][0]
+                    z = float(_val)
 
         if 'rest_frame' in kw:
             rest_frame = (str(kw['rest_frame']).lower() == 'true') 
@@ -1673,7 +1674,7 @@ class specClient(object):
         else:
             rest_frame = True
 
-        if self.conf['rest_frame'] == 'false':
+        if self.context['rest_frame'] == 'false':
             # Data is in the observed rest frame, convert to rest frame if we
             # have a redshift.
             if rest_frame:
@@ -2261,7 +2262,7 @@ class specClient(object):
                 ids = storeClient.get(id_list).split('\n')[:-1]
             elif id_list.find(',') > 0:      # CSV string?
                 pdata = convert (id_list, outfmt='pandas')
-                ids = np.array(pdata[self.conf['id_main']])
+                ids = np.array(pdata[self.context['id_main']])
             else:
                 ids = np.array([id_list])
 
@@ -2290,7 +2291,7 @@ class specClient(object):
 
         elif isinstance(id_list, pd.core.frame.DataFrame):
             try:
-                ids = id_list[self.conf['id_main']].tolist()
+                ids = id_list[self.context['id_main']].tolist()
             except KeyError as e:
                 ids = None
 
@@ -2304,7 +2305,7 @@ class specClient(object):
                 try:
                     if id_list.dtype.names is not None:
                         # structured array
-                        ids = id_list[self.conf['id_main']].tolist()
+                        ids = id_list[self.context['id_main']].tolist()
                     else:
                         # ndarray, use first column
                         ids = id_list[:,0].tolist()
@@ -2312,7 +2313,7 @@ class specClient(object):
                     ids = None
 
         else:
-            ids = np.array(id_list[self.conf['id_main']])
+            ids = np.array(id_list[self.context['id_main']])
 
         return ids
 
@@ -2347,7 +2348,6 @@ def getClient(context='default', profile='default'):
 
 
 
-
 # Get the default client object.
 sp_client = client = getClient(context='default', profile='default')
 
@@ -2362,7 +2362,6 @@ set_profile.__doc__ = sp_client.set_profile.__doc__
 get_profile.__doc__ = sp_client.get_profile.__doc__
 set_context.__doc__ = sp_client.set_context.__doc__
 get_context.__doc__ = sp_client.get_context.__doc__
-
 
 
 

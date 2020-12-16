@@ -256,9 +256,10 @@ def validate(request):
 #
 @routes.get('/spec/query')
 async def query(request):
-    ''' 
+    '''Query the context catalog for information.
     '''
     try:
+        id = request.query['id']
         fields = request.query['fields']
         catalog = request.query['catalog']
         cond = request.query['cond']
@@ -280,7 +281,7 @@ async def query(request):
     # Call the dataset-specific query method.  This allows the service to
     # do any data-specific formatting.  The result is always returned as a
     # csv string.
-    return web.Response(text=svc.query(fields, catalog, cond))
+    return web.Response(text=svc.query(id, fields, catalog, cond))
 
 
 # GETSPEC -- Get a spectra from the data service.

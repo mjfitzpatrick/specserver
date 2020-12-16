@@ -15,7 +15,7 @@ class Service(object):
         self.release = release
         pass
 
-    def query(self, fields, catalog, cond):
+    def query(self, id, fields, catalog, cond):
         '''Return a CSV string of query results on the dataset.
         '''
         pass

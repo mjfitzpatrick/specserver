@@ -60,22 +60,32 @@ class sdssService(Service):
     # ----------------
     # SubClass Methods
     # ----------------
-    def query(self, fields, catalog, cond):
-        '''Return a CSV string of query results on the dataset.
+    def query(self, id, fields, catalog, cond):
+        '''Return a CSV string of query results on the dataset.  If an 'id'
+           is supplied we query directly against the value, otherwise we can
+           use an arbitrary 'cond' in the WHERE clause.
         '''
-        if fields is None or fields == '':
+
+        if fields in [None, 'None', '']:
             fields = sdss_id_main
-        if sdss_id_main in fields:
-            qstring = 'SELECT %s FROM %s WHERE %s' % (fields, catalog, cond)
+
+        if id not in [None, 'None', '']:
+            _where = id
+            qstring = 'SELECT %s FROM %s WHERE %s = %s' % \
+                      (fields, catalog, sdss_id_main, \
+                      toSigned(np.uint64(id), 64))
+            print(qstring)
+            res = qc.query (sql=qstring, fmt='table')
         else:
-            qstring = 'SELECT %s,%s FROM %s WHERE %s' % \
-                      (sdss_id_main, fields, catalog, cond)
+            if sdss_id_main in fields:
+                qstring = 'SELECT %s FROM %s WHERE %s' % (fields, catalog, cond)
+            else:
+                qstring = 'SELECT %s,%s FROM %s WHERE %s' % \
+                          (sdss_id_main, fields, catalog, cond)
 
-        # Query the table.
-        res = qc.query (sql=qstring, fmt='table')
-
-        # Force the object identifier to be an unsigned int.
-        res[sdss_id_main].dtype = np.uint64
+            # Query the table and force the object ID to be an unsigned int.
+            res = qc.query (sql=qstring, fmt='table')
+            res[sdss_id_main].dtype = np.uint64
 
         # Return result as CSV
         ret = StringIO()
@@ -356,6 +366,16 @@ class sdssService(Service):
 #############################################
 # Utility Methods
 #############################################
+
+def toSigned(number, bitLength):
+    '''Convert an unsigned number of a given bitlength to the signed value.
+    '''
+    mask = (2 ** bitLength) - 1
+    if number & (1 << (bitLength - 1)):
+        return number | ~mask
+    else:
+        return number & mask
+
 
 def pack_specobjid(plate, mjd, fiber, run2d):
     """Convert SDSS spectrum identifiers into CAS-style specObjID.
