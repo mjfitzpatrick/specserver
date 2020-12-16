@@ -406,6 +406,15 @@ def query(pos, size, constraint=None, out=None,
 @multimethod('spc',1,False)
 def query(region, constraint=None, out=None,
           context=None, profile=None, **kw):
+    return sp_client._query(ra=None, dec=None, size=None,
+                            pos=None,
+                            region=region,
+                            constraint=constraint,
+                            out=out,
+                            context=context, profile=profile, **kw)
+
+@multimethod('spc',0,False)
+def query(constraint=None, out=None, context=None, profile=None, **kw):
     '''Query for a list of spectrum IDs that can then be retrieved from
         the service.
 
@@ -415,6 +424,8 @@ def query(region, constraint=None, out=None,
         id_list = query(pos, size, constraint=None, out=None,
                         context=None, profile=None, **kw)
         id_list = query(region, constraint=None, out=None,
+                        context=None, profile=None, **kw)
+        id_list = query(constraint=None, out=None,
                         context=None, profile=None, **kw)
 
     Parameters
@@ -488,7 +499,7 @@ def query(region, constraint=None, out=None,
     '''
     return sp_client._query(ra=None, dec=None, size=None,
                             pos=None,
-                            region=region,
+                            region=None,
                             constraint=constraint,
                             out=out,
                             context=context, profile=profile, **kw)
@@ -1187,6 +1198,16 @@ class specClient(object):
     @multimethod('_spc',1,True)
     def query(self, region, constraint=None, out=None,
               context=None, profile=None, **kw):
+        return self._query(ra=None, dec=None, size=None,
+                           pos=None,
+                           region=region,
+                           constraint=constraint,
+                           out=out,
+                           context=context, profile=profile, **kw)
+    
+    @multimethod('_spc',0,True)
+    def query(self, constraint=None, out=None,
+              context=None, profile=None, **kw):
         '''Query for a list of spectrum IDs that can then be retrieved from
             the service.
     
@@ -1196,6 +1217,8 @@ class specClient(object):
             id_list = query(pos, size, constraint=None, out=None,
                             context=None, profile=None, **kw)
             id_list = query(region, constraint=None, out=None,
+                            context=None, profile=None, **kw)
+            id_list = query(constraint=None, out=None,
                             context=None, profile=None, **kw)
     
         Parameters
@@ -1267,7 +1290,7 @@ class specClient(object):
         '''
         return self._query(ra=None, dec=None, size=None,
                            pos=None,
-                           region=region,
+                           region=None,
                            constraint=constraint,
                            out=out,
                            context=context, profile=profile, **kw)
@@ -1300,18 +1323,20 @@ class specClient(object):
         # Build the query URL constraint clause.
         _size = size
         if region is not None:
-            pquery = "q3c_poly_query(ra,dec,ARRAY%s)" % region
+            pquery = 'q3c_poly_query(ra,dec,ARRAY%s)' % region
         elif pos is not None:
-            pquery = "q3c_radial_query(ra,dec,%f,%f,%f)" % \
+            pquery = 'q3c_radial_query(ra,dec,%f,%f,%f)' % \
                          (pos.ra.degree, pos.dec.degree, _size)
+        elif ra is not None and dec is not None:
+            pquery = 'q3c_radial_query(ra,dec,%f,%f,%f)' % (ra, dec, _size)
         else:
-            pquery = "q3c_radial_query(ra,dec,%f,%f,%f)" % (ra, dec, _size)
+            pquery = ''
 
         # Create the query string for the IDs, adding any user-defined
         # fields or constraints.
         cond = pquery
         if constraint not in [None, '']:
-            if constraint[:5].lower() in ['limit', 'order']:
+            if constraint[:5].lower() in ['limit', 'order'] or pquery == '':
                 cond += ' %s' % constraint
             else:
                 cond += ' AND %s' % constraint
@@ -1321,14 +1346,14 @@ class specClient(object):
 
         # Query for the ID/fields.
         _svc_url = '%s/query?' % self.svc_url      # base service URL
-        _svc_url += "id=&"	                   # no ID value
-        _svc_url += "fields=%s&" % ofields         # fields to retrieve
-        _svc_url += "catalog=%s&" % catalog        # catalog to query
-        _svc_url += "cond=%s&" % quote_plus(cond)  # WHERE condition
-        _svc_url += "context=%s&" % context        # dataset context
-        _svc_url += "profile=%s&" % profile        # service profile
-        _svc_url += "debug=%s&" % debug            # system debug flag
-        _svc_url += "verbose=%s" % False           # system verbose flag
+        _svc_url += 'id=&'	                   # no ID value
+        _svc_url += 'fields=%s&' % ofields         # fields to retrieve
+        _svc_url += 'catalog=%s&' % catalog        # catalog to query
+        _svc_url += 'cond=%s&' % quote_plus(cond)  # WHERE condition
+        _svc_url += 'context=%s&' % context        # dataset context
+        _svc_url += 'profile=%s&' % profile        # service profile
+        _svc_url += 'debug=%s&' % debug            # system debug flag
+        _svc_url += 'verbose=%s' % False           # system verbose flag
         r = requests.get (_svc_url, headers=headers)
         _res = spcToString(r.content)
 
