@@ -15200,12 +15200,111 @@ sdss_dr16
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>[10365155617640042496 10366246057961345024  7633728197453172736
- 10833661927714213888  6003362450183049216  8626660053083246592
-  5027224271317127168 12476123396898574336 10754718911683645440
-  9078196222041542656]
+<pre>[&#39;10365155617640042496&#39; &#39;10366246057961345024&#39; &#39;7633728197453172736&#39;
+ &#39;10833661927714213888&#39; &#39;6003362450183049216&#39; &#39;8626660053083246592&#39;
+ &#39;5027224271317127168&#39; &#39;12476123396898574336&#39; &#39;10754718911683645440&#39;
+ &#39;9078196222041542656&#39;]
 </pre>
 </div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Constraining-query-results,-all-sky-queries-and-multiple-return-fields">Constraining query results, all-sky queries and multiple return fields<a class="anchor-link" href="#Constraining-query-results,-all-sky-queries-and-multiple-return-fields">&#182;</a></h2><p>The '<em>constraint</em>' parameter can be specified as a valid SQL '<em>where</em>' clause to further constrain the result.  For example, to select above a certain redshift value and sort the results accordingly.</p>
+<p>Note the '<em>constraint</em>' is appended to the query submitted by the database directly and so any quoted values must use single-quotes.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Constraint tests</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="mf">30.0</span><span class="p">,</span><span class="mf">1.0</span><span class="p">,</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+                 <span class="n">constraint</span><span class="o">=</span><span class="s1">&#39;z &gt; 0.2 order by z limit 10&#39;</span><span class="p">))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>[1750919545821882368 4767234020315779072 1750921744845137920
+ 3226968571238180864  789367746562385920]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>If no positional arguments are supplied to the '<em>query()</em>' call, an 'all-sky' query will be performed.  Note that a '<em>constraint</em>' SHOULD be specified to avoid returning all rows in the catalog.</p>
+<p>The optional '<em>fields</em>' parameter can be specified to request other values from the catalog in the query (the default object ID field is always returned) in a single result table.  That result table can be used when retrieving the data without change.  For example, to get the IDs and redshifts from an all-sky query of objects in a specific redshift range:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">tab</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="s1">&#39;specobjid,z,zerr&#39;</span><span class="p">,</span> <span class="n">constraint</span><span class="o">=</span><span class="s1">&#39;z between 0.5 and 0.6 limit 10&#39;</span><span class="p">)</span>
+<span class="n">tab</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[14]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<i>Table length=10</i>
+<table id="table139823899020944" class="table-striped table-bordered table-condensed">
+<thead><tr><th>specobjid</th><th>z</th><th>zerr</th></tr></thead>
+<thead><tr><th>int64</th><th>float64</th><th>float64</th></tr></thead>
+<tr><td>2676399110575201280</td><td>0.514419</td><td>0.707528</td></tr>
+<tr><td>2676376020831017984</td><td>0.536907</td><td>1.44516</td></tr>
+<tr><td>2676420276174035968</td><td>0.567209</td><td>4.73782e-06</td></tr>
+<tr><td>3384465643041482752</td><td>0.503334</td><td>5.27498</td></tr>
+<tr><td>2887948177086900224</td><td>0.555673</td><td>0.000186353</td></tr>
+<tr><td>2876676532561012736</td><td>0.558302</td><td>0.000117889</td></tr>
+<tr><td>2887946527819458560</td><td>0.555906</td><td>0.000182176</td></tr>
+<tr><td>2887956698302015488</td><td>0.555918</td><td>0.000307983</td></tr>
+<tr><td>2887956973179922432</td><td>0.563307</td><td>0.000137069</td></tr>
+<tr><td>2887949276598528000</td><td>0.556766</td><td>0.000175756</td></tr>
+</table>
+</div>
+
 </div>
 
 </div>
@@ -15281,7 +15380,7 @@ ivar        The inverse variance array
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="prompt input_prompt">In&nbsp;[15]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Utility routine to print information about a spectrum object.</span>
@@ -15315,7 +15414,7 @@ ivar        The inverse variance array
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="prompt input_prompt">In&nbsp;[16]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -15360,8 +15459,8 @@ Format: tables
  Type: &lt;class &#39;astropy.table.table.Table&#39;&gt;
   Len: 3816
 -----------
-CPU times: user 96.8 ms, sys: 15.2 ms, total: 112 ms
-Wall time: 190 ms
+CPU times: user 79 ms, sys: 20.2 ms, total: 99.2 ms
+Wall time: 178 ms
 </pre>
 </div>
 </div>
@@ -15380,7 +15479,7 @@ Wall time: 190 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[15]:</div>
+<div class="prompt input_prompt">In&nbsp;[17]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span> 
@@ -15409,8 +15508,8 @@ Wall time: 190 ms
 Shape: (4, 3846)
 Element Type: &lt;class &#39;numpy.ndarray&#39;&gt;
 -----------
-CPU times: user 13.7 ms, sys: 6.98 ms, total: 20.7 ms
-Wall time: 52.9 ms
+CPU times: user 11.8 ms, sys: 6.14 ms, total: 17.9 ms
+Wall time: 52.1 ms
 </pre>
 </div>
 </div>
@@ -15462,7 +15561,7 @@ Wall time: 52.9 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[16]:</div>
+<div class="prompt input_prompt">In&nbsp;[18]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Create a spectrum ID list for the plot</span>
@@ -15509,7 +15608,7 @@ Wall time: 52.9 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="prompt input_prompt">In&nbsp;[19]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -15532,21 +15631,21 @@ Wall time: 52.9 ms
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>CPU times: user 33.5 ms, sys: 4.79 ms, total: 38.3 ms
-Wall time: 42 ms
+<pre>CPU times: user 35 ms, sys: 5 ms, total: 40 ms
+Wall time: 43.9 ms
 </pre>
 </div>
 </div>
 
 <div class="output_area">
 
-    <div class="prompt output_prompt">Out[17]:</div>
+    <div class="prompt output_prompt">Out[19]:</div>
 
 
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>&lt;matplotlib.image.AxesImage at 0x7f80b85d4890&gt;</pre>
+<pre>&lt;matplotlib.image.AxesImage at 0x7f2b4859fc10&gt;</pre>
 </div>
 
 </div>
@@ -15580,7 +15679,7 @@ Wall time: 42 ms
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[18]:</div>
+<div class="prompt input_prompt">In&nbsp;[20]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%time</span>
@@ -15618,8 +15717,8 @@ Wall time: 42 ms
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>CPU times: user 84.8 ms, sys: 5.85 ms, total: 90.6 ms
-Wall time: 172 ms
+<pre>CPU times: user 72.5 ms, sys: 5.95 ms, total: 78.5 ms
+Wall time: 159 ms
 </pre>
 </div>
 </div>
