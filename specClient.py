@@ -1333,13 +1333,12 @@ class specClient(object):
         _res = spcToString(r.content)
 
         # Query result is in CSV, convert to a named table.
-        res = convert(_res,outfmt='pandas')
+        res = convert(_res,outfmt='table')
 
         if out in [None, '']:
             if ofields.count(',') > 0:
                 return res 
             else:
-                #return np.array(res[self.context['id_main']], dtype=np.uint64)
                 return np.array(res[self.context['id_main']])
         else:
             # Note:  memory expensive for large lists .....
@@ -2256,13 +2255,17 @@ class specClient(object):
                 # Read list from a local file.
                 with open(id_list, 'r') as fd:
                     _list = fd.read()
-                ids = _list.split('\n')[:-1]
+                if _list.startswith(self.context['id_main']):   # CSV string?
+                    ids = _list.split('\n')[1:-1]
+                else:
+                    ids = _list.split('\n')[:-1]
             elif id_list.startswith('vos://'):
                 # Read list from virtual storage.
                 ids = storeClient.get(id_list).split('\n')[:-1]
-            elif id_list.find(',') > 0:      # CSV string?
-                pdata = convert (id_list, outfmt='pandas')
-                ids = np.array(pdata[self.context['id_main']])
+            elif id_list.find(',') > 0 or \
+                 id_list.startswith(self.context['id_main']):   # CSV string?
+                     pdata = convert (id_list, outfmt='pandas')
+                     ids = np.array(pdata[self.context['id_main']])
             else:
                 ids = np.array([id_list])
 
@@ -2271,10 +2274,10 @@ class specClient(object):
                 cnv_list = []
                 if el[0] == '(':      # Assume a tuple
                     for el in ids:
-                        cnv_list.append(el[1:-1])
+                        if el != '': cnv_list.append(el[1:-1])
                 else:
                     for el in ids:
-                        cnv_list.append(int(el))
+                        if el != '': cnv_list.append(int(el))
                 ids = np.array(cnv_list)
 
         elif isinstance(id_list, int) or \
