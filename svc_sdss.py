@@ -77,7 +77,7 @@ class sdssService(Service):
             print(qstring)
             res = qc.query (sql=qstring, fmt='table')
         else:
-            _where = '' if cond[:5].lower() in ['order','limit'] else 'WHERE'
+            _where = '' if cond.strip()[:5].lower() in ['order','limit'] else 'WHERE'
             if sdss_id_main in fields:
                 qstring = 'SELECT %s FROM %s %s %s' % \
                           (fields, catalog, _where, cond)
