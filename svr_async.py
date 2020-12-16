@@ -161,7 +161,7 @@ def profiles(request):
             return ",".join(profiles)
         elif fmt == 'text':
             txt = ''
-            for p in sorted(profiles):
+            for p in profiles:
                 prof = config['profiles'][p]
                 if prof['type'] in ['public','external']:
                     txt = txt + ("%16s   %s\n" % (p,str(prof['description'])))
@@ -188,6 +188,8 @@ def contexts(request):
 
         if fmt == 'csv':
             return ",".join(context)
+        elif fmt == 'json':
+            return web.Response(text=json.dumps(config['contexts']))
         elif fmt == 'text':
             txt = ''
             for p in context:
@@ -196,7 +198,7 @@ def contexts(request):
                     txt = txt + ("%16s   %s\n" % (p,str(conf['description'])))
             return web.Response(text=txt)
     else:
-        raw = config['contexts'].copy()
+        raw = config['contexts'][context]
         return web.Response(text=json.dumps(raw))
 
 
@@ -215,12 +217,12 @@ def catalogs(request):
 
     if fmt == 'csv':
         txt = 'catalog_name,description\n'
-        for p in sorted(catalogs):
+        for p in catalogs:
             cat = config['contexts'][context]['catalogs'][p]
             txt = txt + ("%s,%s\n" % (p, cat))
     elif fmt == 'text':
         txt = "Catalogs used by '%s' context:\n\n" % context
-        for p in sorted(catalogs):
+        for p in catalogs:
             cat = config['contexts'][context]['catalogs'][p]
             txt = txt + ("%30s   %s\n" % (p, cat))
     return web.Response(text=txt)
@@ -250,7 +252,39 @@ def validate(request):
 # Data Service Endpoints
 # =======================================
 
-# GETSPEC -- Get a single spectrum 
+# QUERY -- Query for spectra.
+#
+@routes.get('/spec/query')
+async def query(request):
+    '''Query the context catalog for information.
+    '''
+    try:
+        id = request.query['id']
+        fields = request.query['fields']
+        catalog = request.query['catalog']
+        cond = request.query['cond']
+        context = request.query['context']
+        profile = request.query['profile']
+        debug = (request.query['debug'].lower() == 'true')
+        verbose = (request.query['verbose'].lower() == 'true')
+    except Exception as e:
+        logging.error ('Param Error: ' + str(e))
+        return web.Response(text='Param Error: ' + str(e))
+
+    st_time = time.time()
+
+    # Instantiate the service based on the context.
+    svc = _getSvc(context)
+    svc.debug = debug
+    svc.verbose = verbose
+
+    # Call the dataset-specific query method.  This allows the service to
+    # do any data-specific formatting.  The result is always returned as a
+    # csv string.
+    return web.Response(text=svc.query(id, fields, catalog, cond))
+
+
+# GETSPEC -- Get a spectra from the data service.
 #
 @routes.post('/spec/getSpec')
 async def getSpec(request):
@@ -259,7 +293,7 @@ async def getSpec(request):
     params = await request.post()
     try:
         id_list = params['id_list']
-        bands = params['bands']                         # NYI
+        values = params['values']                       # NYI
         cutout = params['cutout']                       # NYI
         fmt = params['format']
         align = (params['align'].lower() == 'true')
@@ -310,10 +344,10 @@ async def getSpec(request):
             fname = svc.dataPath(id, 'npy')
             data = svc.getData(str(fname))
 
-        if bands != 'all':
-            # Extract the subset of bands.
-            dbands = data[[c for c in list(data.dtype.names) if c in bands]]
-            data = rfn.repack_fields(dbands)
+        if values != 'all':
+            # Extract the subset of values.
+            dvalues = data[[c for c in list(data.dtype.names) if c in values]]
+            data = rfn.repack_fields(dvalues)
 
         if not align:
             f = data

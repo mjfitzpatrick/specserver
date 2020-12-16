@@ -14,10 +14,16 @@ import logging
 import numpy as np
 from svc_base import Service
 from astropy.table import Table
+from astropy.io import ascii
 from io import BytesIO
+from io import StringIO
 
 from dl import queryClient as qc
+from dl.helpers.utils import convert
 
+
+# Primary object identifier
+sdss_id_main = 'specobjid'
 
 # Default RUN2D values for various SDSS data releases.
 sdss_run2d = {'dr16': [26, 103, 104, 'v5_13_0'],
@@ -34,9 +40,9 @@ sdss_run2d = {'dr16': [26, 103, 104, 'v5_13_0'],
 DEF_QUERY_PROFILE = 'db01'
 
 
-# Base service class.
+# SDSS data service sub-class.
 class sdssService(Service):
-    '''Base service class.
+    '''SDSS data service sub-class.
     '''
 
     def __init__(self, release='dr16'):
@@ -51,21 +57,131 @@ class sdssService(Service):
         self.debug = False
         self.verbose = False
 
+    # ----------------
+    # SubClass Methods
+    # ----------------
+    def query(self, id, fields, catalog, cond):
+        '''Return a CSV string of query results on the dataset.  If an 'id'
+           is supplied we query directly against the value, otherwise we can
+           use an arbitrary 'cond' in the WHERE clause.
+        '''
+
+        if fields in [None, 'None', '']:
+            fields = sdss_id_main
+
+        if id not in [None, 'None', '']:
+            _where = id
+            qstring = 'SELECT %s FROM %s WHERE %s = %s' % \
+                      (fields, catalog, sdss_id_main, \
+                      toSigned(np.uint64(id), 64))
+            print(qstring)
+            res = qc.query (sql=qstring, fmt='table')
+        else:
+            if sdss_id_main in fields:
+                qstring = 'SELECT %s FROM %s WHERE %s' % (fields, catalog, cond)
+            else:
+                qstring = 'SELECT %s,%s FROM %s WHERE %s' % \
+                          (sdss_id_main, fields, catalog, cond)
+
+            # Query the table and force the object ID to be an unsigned int.
+            res = qc.query (sql=qstring, fmt='table')
+            res[sdss_id_main].dtype = np.uint64
+
+        # Return result as CSV
+        ret = StringIO()
+        ascii.write (res, ret, format='csv')
+        retval = ret.getvalue()
+
+        return retval
+
 
     def dataPath(self, id, fmt='npy'):
         '''Get the path to the SDSS spectrum data file.
         '''
         if fmt.lower() == 'fits':       # 'fmt' can be a client format
-            return self.idToPath(id, 'fits')
+            return self._idToPath(id, 'fits')
         else:
-            return self.idToPath(id, 'npy')
+            return self._idToPath(id, 'npy')
+
 
     def previewPath(self, id):
         '''Get the path to the SDSS spectrum preview file.
         '''
-        return self.idToPath(id, 'png')
+        return self._idToPath(id, 'png')
 
-    def findFile(self, plate, mjd, fiber, extn):
+
+    def getData(self, fname):
+        '''Return the data in the named file as a numpy array.
+        '''
+        if fname[-3:] == 'npy':
+            return np.load(str(fname))
+        elif fname[-4:] == 'fits':
+            data = Table.read(fname, hdu=1).as_array()
+            retval = BytesIO()
+            np.save(retval, data, allow_pickle=False)
+            return np.load(BytesIO(retval.getvalue()), allow_pickle=False)
+        else:
+            raise Exception('getdata(): Unknown file extension')
+
+
+    def expandIDList(self, id_list):
+        '''Expand the input (string) identifier list to an array of valid
+           SDSS identifiers.  For plate/mjd/fiber/run2d tuples we also expand
+           wildcards.
+        '''
+        st_time = time.time()
+
+        # Remove the array brackets from the string and strip any internal
+        # (non-quoted) whitespace.  The result is an array of strings we
+        # can map to identifiers.
+        if self.debug: print('ID_LIST in: :' + str(id_list) + ':')
+        id_str = id_list[1:-1].strip()  if id_list[0] == '[' else id_list
+        if id_str.find('(') >= 0:
+            id_str = id_str.replace(' ','').replace(',(',' (')
+            id_str = id_str.replace("),",") ").replace(",("," (")
+        else:
+            id_str = id_str.replace('\n',' ').replace('  ',' ').replace(' ',',')
+            id_str = id_str.replace(' ','').replace(',,',',')
+        split_char = ' ' if '(' in id_str else ','
+        id_str = id_str.split(split_char)
+        if self.debug: print('ID_STR: ' + str(id_str))
+
+        if all(x.isdigit() for x in id_str):
+            # All identifiers are integers.
+            ids = np.uint64(id_str)
+        elif any(x.startswith('(') for x in id_str):
+            # At least some identifiers are tuple strings.
+            ids = []
+            for s in id_str:
+                if s[0] == '(':
+                    v = eval(s)
+                    if len(v) == 1:
+                        _ids = self._expandID (v[0],'*','*','*')
+                    elif len(v) == 2:
+                        _ids = self._expandID (v[0],v[1],'*','*')
+                    elif len(v) == 3:
+                        _ids = self._expandID (v[0],v[1],v[2],'*')
+                    else:
+                        _ids = self._expandID (v[0],v[1],v[2],v[3])
+
+                    ids = ids + _ids
+                elif s.isdigit():
+                    ids.append(np.uint64(s))
+        else:
+            raise Exception('Unknown identifier values')
+
+        if self.debug:
+            print('EXPAND ids = ' + str(ids)[:128])
+            print('EXPAND len(ids) = ' + str(len(ids)))
+            print('EXPAND time: ' + str(time.time() - st_time))
+        return ids
+
+
+    # ----------------
+    # Utility Methods
+    # ----------------
+
+    def _findFile(self, plate, mjd, fiber, extn):
         '''Find a file given a plate/mjd/fiber tuple.
         '''
         st_time = time.time()
@@ -75,7 +191,7 @@ class sdssService(Service):
                   '%s/sdss/spectro/redux/%s/spectra/%04i/spec-%04i-%05i-%04i.%s' % \
                   (self.release,str(r),plate,plate,mjd,fiber,extn)
             if os.path.exists(spath):
-                if self.debug: print('findFile() time0: ' + \
+                if self.debug: print('_findFile() time0: ' + \
                                      str(time.time()-st_time))
                 return(spath)
 
@@ -86,14 +202,26 @@ class sdssService(Service):
         files = glob.glob(spath)
         for f in files:
             if os.path.exists(f):
-                if self.debug: print('findFile() time1: ' + \
+                if self.debug: print('_findFile() time1: ' + \
                                      str(time.time()-st_time))
                 return(f)
 
-        if self.debug: print('findFile() time2: ' + str(time.time()-st_time))
+        if self.debug: print('_findFile() time2: ' + str(time.time()-st_time))
         return None
 
-    def expandID (self, plate, mjd, fiber, run2d):
+
+    def _buildPath(self, plate, mjd, fiber, run2d, survey, extn):
+        '''Build a pathname for the ID.
+        '''
+        base_path = self.fits_root if extn == 'fits' else self.cache_root
+        base_path = base_path + \
+                        '%s/%s/spectro/redux/' % (self.release, survey)
+        path = base_path + ('%s/spectra/%04i/' % (run2d, plate))
+        fname = path + 'spec-%04i-%05i-%04i.%s' %  (plate,mjd,fiber,extn)
+        return fname
+
+
+    def _expandID (self, plate, mjd, fiber, run2d):
         '''Expand wildcards in a tuple identifier.
         '''
         # PLATE may be an int or list
@@ -163,8 +291,6 @@ class sdssService(Service):
             if wr is not None:
                 w = w  + ('' if w == '' else ' AND ') + wr
 
-        #query = '''SELECT plate,mjd,fiberid,run2d,survey 
-        #           FROM sdss_%s.specobj WHERE %s''' % (self.release, w)
         # DR16 will have the needed information, we cannot count on earlier
         # releases having an available 'specobj' table.
         query = '''SELECT plate,mjd,fiberid,run2d,survey 
@@ -182,87 +308,7 @@ class sdssService(Service):
         return(ids)
 
 
-    def expandIDList(self, id_list):
-        '''Expand the input (string) identifier list to an array of valid
-           SDSS identifiers.  For plate/mjd/fiber/run2d tuples we also expand
-           wildcards.
-        '''
-        st_time = time.time()
-
-        # Remove the array brackets from the string and strip any internal
-        # (non-quoted) whitespace.  The result is an array of strings we
-        # can map to identifiers.
-        if self.debug: print('ID_LIST in: :' + str(id_list) + ':')
-        id_str = id_list[1:-1].strip()  if id_list[0] == '[' else id_list
-        if id_str.find('(') >= 0:
-            id_str = id_str.replace(' ','').replace(',(',' (')
-            id_str = id_str.replace("),",") ").replace(",("," (")
-        else:
-            id_str = id_str.replace('\n',' ').replace('  ',' ').replace(' ',',')
-            id_str = id_str.replace(' ','').replace(',,',',')
-        split_char = ' ' if '(' in id_str else ','
-        id_str = id_str.split(split_char)
-        if self.debug: print('ID_STR: ' + str(id_str))
-
-        if all(x.isdigit() for x in id_str):
-            # All identifiers are integers.
-            ids = np.uint64(id_str)
-        elif any(x.startswith('(') for x in id_str):
-            # At least some identifiers are tuple strings.
-            ids = []
-            for s in id_str:
-                if s[0] == '(':
-                    v = eval(s)
-                    if len(v) == 1:
-                        _ids = self.expandID (v[0],'*','*','*')
-                    elif len(v) == 2:
-                        _ids = self.expandID (v[0],v[1],'*','*')
-                    elif len(v) == 3:
-                        _ids = self.expandID (v[0],v[1],v[2],'*')
-                    else:
-                        _ids = self.expandID (v[0],v[1],v[2],v[3])
-
-                    ids = ids + _ids
-                elif s.isdigit():
-                    ids.append(np.uint64(s))
-        else:
-            raise Exception('Unknown identifier values')
-
-        if self.debug:
-            print('EXPAND ids = ' + str(ids)[:128])
-            print('EXPAND len(ids) = ' + str(len(ids)))
-            print('EXPAND time: ' + str(time.time() - st_time))
-        return ids
-
-    def getData(self, fname):
-        '''Return the data in the named file as a numpy array.
-        '''
-        if fname[-3:] == 'npy':
-            return np.load(str(fname))
-        elif fname[-4:] == 'fits':
-            data = Table.read(fname, hdu=1).as_array()
-            retval = BytesIO()
-            np.save(retval, data, allow_pickle=False)
-            return np.load(BytesIO(retval.getvalue()), allow_pickle=False)
-        else:
-            raise Exception('getdata(): Unknown file extension')
-
-    def idType(self, id):
-        '''Get the path to a SDSS spectrum data file with the named extension.
-        '''
-        pass
-
-    def buildPath(self, plate, mjd, fiber, run2d, survey, extn):
-        '''Build a pathname for the ID.
-        '''
-        base_path = self.fits_root if extn == 'fits' else self.cache_root
-        base_path = base_path + \
-                        '%s/%s/spectro/redux/' % (self.release, survey)
-        path = base_path + ('%s/spectra/%04i/' % (run2d, plate))
-        fname = path + 'spec-%04i-%05i-%04i.%s' %  (plate,mjd,fiber,extn)
-        return fname
-
-    def idToPath(self, id, extn):
+    def _idToPath(self, id, extn):
         '''Get the path to a SDSS spectrum data file with the named extension.
         '''
         st_time = time.time()
@@ -298,21 +344,21 @@ class sdssService(Service):
         if run2d == '':
             # If we don't have an explicit RUN2D value, search for a 
             # plate/mjd/fiber combo in the given context.
-            fname = self.findFile(plate,mjd,fiber,extn)
+            fname = self._findFile(plate,mjd,fiber,extn)
         else:
             # Otherwise construct the path to the file.
-            fname = self. buildPath(plate, mjd, fiber, run2d, survey, extn)
+            fname = self._buildPath(plate, mjd, fiber, run2d, survey, extn)
             if not os.path.exists(fname):
                 # Not found in the current context, look around....
-                fname = self.findFile(plate,mjd,fiber,extn)
+                fname = self._findFile(plate,mjd,fiber,extn)
 
         # Lastly, try to find a FITS file before giving up.
         if fname is None:
-            fname = self.findFile(plate,mjd,fiber,'fits')
+            fname = self._findFile(plate,mjd,fiber,'fits')
             if fname is None:
                 raise Exception('File not found: ')
 
-        if self.debug: print('idToPath() time: ' + str(time.time()-st_time))
+        if self.debug: print('_idToPath() time: ' + str(time.time()-st_time))
         return fname
 
 
@@ -320,6 +366,16 @@ class sdssService(Service):
 #############################################
 # Utility Methods
 #############################################
+
+def toSigned(number, bitLength):
+    '''Convert an unsigned number of a given bitlength to the signed value.
+    '''
+    mask = (2 ** bitLength) - 1
+    if number & (1 << (bitLength - 1)):
+        return number | ~mask
+    else:
+        return number & mask
+
 
 def pack_specobjid(plate, mjd, fiber, run2d):
     """Convert SDSS spectrum identifiers into CAS-style specObjID.

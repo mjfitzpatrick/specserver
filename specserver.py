@@ -73,6 +73,7 @@ def parseConfig(file):
     import socket
     global config
 
+    print('Opening config file: ' + file)
     if os.path.exists(file):
         config = json.load(open(file))
         if is_py3:

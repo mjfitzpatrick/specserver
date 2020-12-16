@@ -4,7 +4,7 @@
 #
 
 __authors__ = 'Mike Fitzpatrick <fitz@noao.edu>'
-__version__ = 'v1.1.0'
+__version__ = 'v1.2.0'
 
 
 '''
@@ -23,7 +23,7 @@ __version__ = 'v1.1.0'
                set_context  (context)
          ctx = get_context  ()
       ctxs = list_contexts  (context, fmt='text')
-      ctxs = list_contexts  (contexts=None, fmt='text')
+      ctxs = list_contexts  (context=None, fmt='text')
 
                set_profile  (profile)
         prof = get_profile  ()
@@ -88,19 +88,21 @@ from astropy import units as u
 from astropy.nddata import StdDevUncertainty
 from astropy.nddata import InverseVariance
 from astropy.table import Table
-from matplotlib import pyplot as plt      # visualization libs
+from matplotlib import pyplot as plt      	# visualization libs
 
 try:
-    import pycurl_requests as requests
+    import pycurl_requests as requests		# faster 'requests' lib
 except ImportError:
-    import requests
-import pycurl
+    import requests				# fall-back 'requests' lib
+import pycurl					# low-level interface
+from urllib.parse import quote_plus		# URL encoding
 
 # Data Lab imports.
 from dl import queryClient
 from dl import storeClient
 from dl.Util import def_token
 from dl.Util import multimethod
+from dl.helpers.utils import convert
 
 
 # Python version check.
@@ -146,7 +148,8 @@ DEF_SERVICE_PROFILE = "default"
 DEF_SERVICE_CONTEXT = "default"
 
 # Use a /tmp/AM_DEBUG file as a way to turn on debugging in the client code.
-DEBUG = os.path.isfile('/tmp/SDC_DEBUG')
+DEBUG = os.path.isfile('/tmp/SPEC_DEBUG')
+VERBOSE = os.path.isfile('/tmp/SPEC_VERBOSE')
 
 
 # ######################################################################
@@ -174,6 +177,29 @@ class dlSpecError(Exception):
 
     def __str__(self):
         return self.message
+
+
+# ###################################
+#  Py2/Py3 Compatability Utilities
+# ###################################
+
+def spcToString(s):
+    '''spcToString -- Force a return value to be type 'string' for all
+                      Python versions.
+    '''
+    if is_py3:
+        if isinstance(s,bytes):
+            strval = str(s.decode())
+        elif isinstance(s,str):
+            strval = s
+    else:
+        if isinstance(s,bytes) or isinstance(s,unicode):
+            strval = str(s)
+        else:
+            strval = s
+
+    return strval
+
 
 
 
@@ -273,7 +299,7 @@ def list_profiles(profile=None, fmt='text'):
 #
 @multimethod('spc',1,False)
 def list_contexts(context, fmt='text'):
-    return sp_client._list_contexts(contexts=context, fmt=fmt)
+    return sp_client._list_contexts(context=context, fmt=fmt)
 
 @multimethod('spc',0,False)
 def list_contexts(context=None, fmt='text'):
@@ -346,7 +372,6 @@ def to_Table(npy_data):
     '''Utility method to convert a Numpy array to an Astropy Table object.
     '''
     return sp_client.to_Table(npy_data)
-
 
 
 
@@ -438,9 +463,6 @@ def query(region, constraint=None, out=None,
                value, the p/m/f tuple is extracted from the
                bitmask value by the client.
 
-           primary:
-               True                # query sdss_dr16.specobj
-               False               # query sdss_dr16.specobjall
            catalog:
                <schema>.<table>    # alternative catalog to query e.g. a 
                                    # VAC from earlier DR (must support an
@@ -492,13 +514,13 @@ def getSpec(id_list, fmt='numpy', out=None, align=False, cutout=None,
         Return format of spectra
 
     out : 
-        Return format of spectra
+        Output file or return to caller if None
 
     align : 
-        Return format of spectra
+        Align spectra to common wavelength grid with zero-padding
 
-    cutout : 
-        Return format of spectra
+    cutout: 
+        Wavelength cutout range (as "<start>-<end>")
 
     context : str
         Dataset context.
@@ -509,6 +531,12 @@ def getSpec(id_list, fmt='numpy', out=None, align=False, cutout=None,
     **kw : dict
         Optional keyword arguments.  Supported keywords currently include:
 
+           values = None
+               Spectrum vectors to return.
+           token = None
+               Data Lab auth token.
+           id_col = None
+               Name of ID column in input table.
            verbose = False
                Print verbose messages during retrieval
            debug = False
@@ -575,7 +603,7 @@ def plot(spec, context=None, profile=None, out=None, **kw):
                   xlim - Set the xrange of the plot
                   ylim - Set the yrange of the plot
 
-                 bands - A comma-delimited string of which bands to plot,
+                values - A comma-delimited string of which values to plot,
                          a combination of 'flux,model,sky,ivar'
             mark_lines - Which lines to mark.  No lines marked if None or
                          an empty string, otherwise one of 'em|abs|all|both'
@@ -811,14 +839,18 @@ class specClient(object):
         self.svc_url = DEF_SERVICE_URL          # service URL
         self.qm_svc_url = QM_SERVICE_URL        # Query Manager service URL
         self.sm_svc_url = SM_SERVICE_URL        # Storage Manager service URL
+        self.auth_token = def_token(None)       # default auth token (not used)
         self.svc_profile = profile              # service profile
         self.svc_context = context              # dataset context
-        self.auth_token = def_token(None)       # default auth token (not used)
 
         self.hostip = THIS_IP
         self.hostname = THIS_HOST
-
         self.debug = DEBUG                      # interface debug flag
+        self.verbose = VERBOSE                  # interface verbose flag
+
+        # Get the server-side config for the context.  Note this must also
+	# be updated whenever we do a set_svc_url() or set_context().
+        self.context = self._list_contexts(context) 
 
 
     # Standard Data Lab service methods.
@@ -843,6 +875,7 @@ class specClient(object):
             specClient.set_svc_url("http://localhost:7001/")
         '''
         self.svc_url = spcToString(svc_url.strip('/'))
+        self.context = self._list_contexts(context=self.svc_context)
 
     def get_svc_url(self):
         '''Return the currently-used Spectroscopic Data Service URL.
@@ -935,6 +968,7 @@ class specClient(object):
         url = self.svc_url + '/validate?what=context&value=%s' % context
         if spcToString(self.curl_get(url)) == 'OK':
             self.svc_context = spcToString(context)
+            self.context = self._list_contexts(context=self.svc_context)
             return 'OK'
         else:
             raise Exception('Invalid context "%s"' % context)
@@ -1027,7 +1061,7 @@ class specClient(object):
         if '{' in profiles:
             profiles = json.loads(profiles)
 
-        return spcToString(profiles)
+        return profiles
 
 
 
@@ -1057,7 +1091,7 @@ class specClient(object):
         if '{' in contexts:
             contexts = json.loads(contexts)
 
-        return spcToString(contexts)
+        return contexts
 
 
     def catalogs(self, context='default', profile='default', fmt='text'):
@@ -1084,16 +1118,20 @@ class specClient(object):
     def to_Spectrum1D(self, npy_data):
         ''' Convert a Numpy spectrum array to a Spectrum1D object.
         '''
-        lamb = 10**npy_data['loglam'] * u.AA 
+        if npy_data.ndim == 2:
+            lamb = 10**npy_data['loglam'][0] * u.AA 
+        else:
+            lamb = 10**npy_data['loglam'] * u.AA 
         flux = npy_data['flux'] * 10**-17 * u.Unit('erg cm-2 s-1 AA-1')
-        mask = npy_data['flux'] != 0
+        mask = npy_data['flux'] == 0
         flux_unit = u.Unit('erg cm-2 s-1 AA-1')
         uncertainty = InverseVariance(npy_data['ivar'] / flux_unit**2)
 
         spec1d = Spectrum1D(spectral_axis=lamb, flux=flux,
                             uncertainty=uncertainty, mask=mask)
-        spec1d.meta['sky'] = npy_data['sky']
-        spec1d.meta['model'] = npy_data['model']
+
+        spec1d.meta['sky'] = npy_data['sky'] * 10**-17 * flux_unit
+        spec1d.meta['model'] = npy_data['model'] * 10**-17 * flux_unit
         spec1d.meta['ivar'] = npy_data['ivar']
 
         return spec1d
@@ -1204,9 +1242,6 @@ class specClient(object):
                    value, the p/m/f tuple is extracted from the
                    bitmask value by the client.
 
-               primary:
-                   True                # query sdss_dr16.specobj
-                   False               # query sdss_dr16.specobjall
                catalog:
                    <schema>.<table>    # alternative catalog to query e.g. a 
                                        # VAC from earlier DR (must support an
@@ -1251,37 +1286,18 @@ class specClient(object):
         if profile in [None, '']: profile = self.svc_profile
 
         # Process optional keyword arguments.
+        ofields = kw['fields'] if 'fields' in kw else self.context['id_main']
+        catalog = kw['catalog'] if 'catalog' in kw else self.context['catalog']
         if context == 'default' or context.startswith('sdss'):
-            fields = kw['fields'] if 'fields' in kw else 'specobjid'
-            if fields == 'tuple':
-                fields = 'plate,mjd,fiberid,run2d'
-                raise dlSpecError('Error: "tuple" not yet supported')
-            if fields.find(',') > 0:
-                raise dlSpecError('Error: multiple fields not yet supported')
-            catalog = kw['catalog'] if 'catalog' in kw else 'sdss_dr16.specobj'
-            primary = kw['primary'] if 'primary' in kw else True
-            if not primary and catalog == 'sdss_dr16_specobj':
-                catalog = 'sdss_dr16.specobjall'
-        else:
-            fields = kw['fields'] if 'fields' in kw else 'specobjid'
-            catalog = kw['catalog'] if 'catalog' in kw else 'sdss_dr16.specobj'
+            if ofields == 'tuple':
+                ofields = 'plate,mjd,fiberid,run2d'
 
         timeout = kw['timeout'] if 'timeout' in kw else 600
         token = kw['token'] if 'token' in kw else self.auth_token
-        verbose = kw['verbose'] if 'verbose' in kw else False
-        debug = kw['debug'] if 'debug' in kw else False
+        verbose = kw['verbose'] if 'verbose' in kw else self.verbose
+        debug = kw['debug'] if 'debug' in kw else self.debug
 
-        # Set service call headers.
-        headers = {'Content-Type': 'text/ascii',
-                   'X-DL-TimeoutRequest': str(timeout),
-                   'X-DL-ClientVersion': __version__,
-                   'X-DL-OriginIP': self.hostip,
-                   'X-DL-OriginHost': self.hostname,
-                   'X-DL-AuthToken': token}
-
-        # Build the query URL string.
-        base_url = '%s/query?' % self.qm_svc_url
-
+        # Build the query URL constraint clause.
         _size = size
         if region is not None:
             pquery = "q3c_poly_query(ra,dec,ARRAY%s)" % region
@@ -1291,41 +1307,52 @@ class specClient(object):
         else:
             pquery = "q3c_radial_query(ra,dec,%f,%f,%f)" % (ra, dec, _size)
 
-        # Create the query string for the IDs.
-        sql = 'SELECT %s FROM %s WHERE %s' % (fields, catalog, pquery)
-
-        # Add any user-defined constraint.
+        # Create the query string for the IDs, adding any user-defined
+        # fields or constraints.
+        cond = pquery
         if constraint not in [None, '']:
             if constraint[:5].lower() in ['limit', 'order']:
-                sql += ' %s' % constraint
+                cond += ' %s' % constraint
             else:
-                sql += ' AND %s' % constraint
+                cond += ' AND %s' % constraint
 
-        # Query for the IDs.
-        if debug:
-            print ('SQL = ' + sql)
-        res = queryClient.query (sql=sql, fmt='csv').split('\n')[1:-1]
-        if debug:
-            print ('res = ' + str(res))
+        # Set service call headers.
+        headers = self.getHeaders (None)
 
-        id_list = np.array(res, dtype=np.uint64)
+        # Query for the ID/fields.
+        _svc_url = '%s/query?' % self.svc_url      # base service URL
+        _svc_url += "id=&"	                   # no ID value
+        _svc_url += "fields=%s&" % ofields         # fields to retrieve
+        _svc_url += "catalog=%s&" % catalog        # catalog to query
+        _svc_url += "cond=%s&" % quote_plus(cond)  # WHERE condition
+        _svc_url += "context=%s&" % context        # dataset context
+        _svc_url += "profile=%s&" % profile        # service profile
+        _svc_url += "debug=%s&" % debug            # system debug flag
+        _svc_url += "verbose=%s" % False           # system verbose flag
+        r = requests.get (_svc_url, headers=headers)
+        _res = spcToString(r.content)
+
+        # Query result is in CSV, convert to a named table.
+        res = convert(_res,outfmt='pandas')
+
         if out in [None, '']:
-            return id_list
+            if ofields.count(',') > 0:
+                return res 
+            else:
+                #return np.array(res[self.context['id_main']], dtype=np.uint64)
+                return np.array(res[self.context['id_main']])
         else:
             # Note:  memory expensive for large lists .....
-            csv_rows = ["{}".format(i) for i in id_list]
-            csv_text = "\n".join(csv_rows)
-            if out == '':
-                return csv_text
-            elif out.startswith('vos://'):
+            csv_text = _res
+            if out.startswith('vos://'):
                 return storeClient.saveAs(csv_text, out)[0]
             else:
                 with open(out, "w") as fd:
                     fd.write(csv_text)
                     fd.write('\n')
                 return 'OK'
-    
-    
+
+
     # --------------------------------------------------------------------
     # GETSPEC -- Retrieve spectra for a list of objects.
     #
@@ -1346,13 +1373,13 @@ class specClient(object):
             Return format of spectra
     
         out : 
-            Return format of spectra
+            Output filename or return to caller if None
     
         align : 
-            Return format of spectra
+            Align spectra to common wavelength grid with zero-padding
     
         cutout : 
-            Return format of spectra
+            Wavelength cutout range (as "<start>-<end>")
     
         context : str
             Dataset context.
@@ -1363,6 +1390,12 @@ class specClient(object):
         **kw : dict
             Optional keyword arguments.  Supported keywords currently include:
     
+               values = None
+                   Spectrum vectors to return.
+               token = None
+                   Data Lab auth token.
+               id_col = None
+                   Name of ID column in input table.
                verbose = False
                    Print verbose messages during retrieval
                debug = False
@@ -1394,11 +1427,11 @@ class specClient(object):
         if profile in [None, '']: profile = self.svc_profile
 
         # Process optional parameters.
-        cutout = kw['cutout'] if 'cutout' in kw else ''
-        bands = kw['bands'] if 'bands' in kw else 'all'
+        values = kw['values'] if 'values' in kw else 'all'
         token = kw['token'] if 'token' in kw else self.auth_token
-        verbose = kw['verbose'] if 'verbose' in kw else False
-        debug = kw['debug'] if 'debug' in kw else False
+        id_col = kw['id_col'] if 'id_col' in kw else None
+        verbose = kw['verbose'] if 'verbose' in kw else self.verbose
+        debug = kw['debug'] if 'debug' in kw else self.debug
 
         # Set service call headers.
         headers = {'Content-Type' : 'application/x-www-form-urlencoded',
@@ -1410,47 +1443,18 @@ class specClient(object):
         if debug:
             print('getSpec(): in ty id_list = ' + str(type(id_list)))
 
-        if isinstance(id_list,str):
-            if os.path.exists(id_list):
-                # Read list from a local file.
-                with open(id_list, 'r') as fd:
-                    _list = fd.read()
-                id_list = _list.split('\n')[:-1]
-            elif id_list.startswith('vos://'):
-                # Read list from virtual storage.
-                id_list = storeClient.get(id_list).split('\n')[:-1]
-            else:
-                id_list = np.array([id_list])
-
-            el = id_list[0]
-            if isinstance(el,str):
-                cnv_list = []
-                if el[0] == '(':      # Assume a tuple
-                    for el in id_list:
-                        cnv_list.append(el[1:-1])
-                else:
-                    for el in id_list:
-                        cnv_list.append(int(el))
-                id_list = np.array(cnv_list)
-
-        elif isinstance(id_list,int):
-            id_list = [ id_list ]
-
-        elif isinstance(id_list,tuple):
-            id_list = [ id_list ]
-
-        elif not (isinstance(id_list, list) or isinstance(id_list, np.ndarray)):
-            id_list = np.array([id_list])
+        # Extract the ID list from the input value.
+        ids = self.extractIDList (id_list)
 
         # Force alignment for SpectrumCollection format.
         if fmt.lower() == 'spectrumcollection':
             align = True
                     
-        if debug: print('ty id_list: ' + str(type(id_list)))
+        if debug: print('ty ids: ' + str(type(ids)))
 
         # Initialize the payload.
-        data = {'id_list' : id_list,
-                'bands' : bands,
+        data = {'id_list' : ids,
+                'values' : values,
                 'format' : fmt,
                 'align' : align,
                 'cutout' : cutout,
@@ -1478,7 +1482,7 @@ class specClient(object):
             # If not aligning columns, request each spectrum individually
             # so we can return a list object.
             _data = []
-            for id in id_list:
+            for id in ids:
                 data['id_list'] = id
                 resp = requests.post (url, data=data, headers=headers)
                 if fmt.lower() == 'fits':
@@ -1489,29 +1493,19 @@ class specClient(object):
             if fmt.lower() != 'fits':
                 _data = np.array(_data)
 
-        if debug:
-            print ('ty data: ' + str(type(_data)))
-            print ('len data: ' + str(len(_data)))
-            print ('shape data: ' + str(_data.shape))
-            print ('size data: ' + str(sys.getsizeof(_data)))
-
-
         if fmt.lower() == 'fits':
-            # Note: assumes a single file....FIXME
+            # Note: assumes a single file is requested.
             if len(_data) == 1:
                 return _data[0]
             else:
                 return _data
         else:
-            if debug:
-                print('len _data: ' + str(len(_data)))
-                print('typ _data: ' + str(type(_data)))
-            if fmt.lower()[:5] == 'numpy':
+            if fmt.lower()[:5] == 'numpy':		# NUMPY array
                 if len(_data) == 1:
                     return _data[0]
                 else:
                     return _data
-            elif fmt.lower()[:6] == 'pandas':
+            elif fmt.lower()[:6] == 'pandas':		# Pandas DataFrame
                 if len(_data) == 1:
                     return self.to_pandas(_data[0])
                 else:
@@ -1519,7 +1513,7 @@ class specClient(object):
                     for d in _data:
                         pd_data.append(self.to_pandas(d))
                     return pd_data
-            elif fmt.lower()[:6] == 'tables':
+            elif fmt.lower()[:6] == 'tables':		# Astropy Table
                 if len(_data) == 1:
                     return self.to_Table(_data[0])
                 else:
@@ -1527,10 +1521,11 @@ class specClient(object):
                     for d in _data:
                         tb_data.append(self.to_Table(d))
                     return tb_data
-            elif fmt.lower()[:8] == 'spectrum':
-                # FIXME: column names are SDSS-specific??
+            elif fmt.lower()[:8] == 'spectrum':		# Spectrum1D
                 if len(_data) == 1:
                     return self.to_Spectrum1D(_data[0])
+                elif align:
+                    return self.to_Spectrum1D(_data)
                 else:
                     sp_data = []
                     for i in range(len(_data)):
@@ -1575,12 +1570,20 @@ class specClient(object):
             Optional keyword arguments.  Supported keywords currently include:
 
                 rest_frame - Whether or not to plot the spectra in the
-                             rest-frame  (def: True)
+                             rest-frame. If True, the wavelengths are assumed
+	  		     to have been already shifted and no 'z' value is
+			     required.  If False, wavelengths are assumed to
+			     be in observed frame and a 'z' value is required 
+			     to overplot absorption/emission lines. (def: True)
                          z - Redshift value (def: None)
                       xlim - Set the xrange of the plot
                       ylim - Set the yrange of the plot
+                     title - Plot title (def: object ID)
+                    xlabel - Plot x-axis label (def: wavelength)
+                    ylabel - Plot y-axis label (def: flux units)
+                        out - Saved output filename.
     
-                     bands - A comma-delimited string of which bands to plot,
+                    values - A comma-delimited string of which values to plot,
                              a combination of 'flux,model,sky,ivar'
                 mark_lines - Which lines to mark.  No lines marked if None or
                              an empty string, otherwise one of 'em|abs|all|both'
@@ -1607,14 +1610,19 @@ class specClient(object):
                 spec.plot (specID, context='sdss_dr16', out='vos://spec.png')
         '''
 
+        verbose = kw['verbose'] if 'verbose' in kw else self.verbose
+        debug = kw['debug'] if 'debug' in kw else self.debug
+
         if context in [None, '']: context = self.svc_context
         if profile in [None, '']: profile = self.svc_profile
 
         # See whether we've been passed a spectrum ID or a data.
+        _id = None
         if isinstance(spec, int) or \
-           isinstance(spec, np.uint64) or \
+           isinstance(spec, np.int64) or isinstance(spec, np.uint64) or \
            isinstance(spec, tuple) or \
            isinstance(spec, str):
+               _id = spec
                dlist = sp_client.getSpec(spec, context=context,profile=profile)
                data = dlist
                wavelength = 10.0**data['loglam']
@@ -1631,13 +1639,62 @@ class specClient(object):
                    sky = spec['sky']
                    ivar = spec['ivar']
             elif isinstance (spec, Spectrum1D):
-                wavelength = spec.spectral_axis#.value
-                flux = spec.flux#.value
-                model = spec.meta['model']*10**-17 * u.Unit('erg cm-2 s-1 AA-1')
-                sky = spec.meta['sky']*10**-17 * u.Unit('erg cm-2 s-1 AA-1')
+                wavelength = np.array(spec.spectral_axis.value)
+                flux = spec.flux
+                model = spec.meta['model']
+                sky = spec.meta['sky']
                 ivar = spec.meta['ivar']
 
-        self._plotSpec(wavelength, flux, model=model, sky=sky, ivar=ivar, **kw)
+        # Get the wavelength frame and redshift for the plot.
+        if 'z' in kw:
+            z = float(kw['z']) 			# use supplied value
+            del(kw['z'])
+        else:
+            z = None
+            if _id is not None:
+                # Query for the redshift field of the catalog.
+                headers = self.getHeaders (None)
+                _svc_url = '%s/query?' % self.svc_url      # base service URL
+                _svc_url += "id=%s&" % str(_id)
+                _svc_url += "fields=%s&" % self.context['z']
+                _svc_url += "catalog=%s&" % self.context['catalog']
+                _svc_url += "cond=&"
+                _svc_url += "context=%s&" % context
+                _svc_url += "profile=%s&" % profile
+                _svc_url += "debug=%s&" % debug
+                _svc_url += "verbose=%s" % verbose
+                r = requests.get (_svc_url, headers=headers)
+                if r.status_code == 200:
+                    _val = spcToString(r.content).split('\n')[1:-1][0]
+                    z = float(_val)
+
+        if 'rest_frame' in kw:
+            rest_frame = (str(kw['rest_frame']).lower() == 'true') 
+            del(kw['rest_frame'])
+        else:
+            rest_frame = True
+
+        if self.context['rest_frame'] == 'false':
+            # Data is in the observed rest frame, convert to rest frame if we
+            # have a redshift.
+            if rest_frame:
+                if z is not None:
+                    wavelength /= (1 + z)
+                else:
+                    warnings.warn('Redshift required to plot in rest frame.')
+                    rest_frame = False
+        else:
+            # Data is already in rest frame, convert to observed frame if we
+            # have a redshift.
+            if not rest_frame:
+                if z is not None:
+                    wavelength *= (1 + z)
+                else:
+                    warning.warn('Redshift required to plot in observed frame.')
+                    rest_frame = True
+
+        self._plotSpec(wavelength, flux, model=model, sky=sky, ivar=ivar,
+                       rest_frame=rest_frame, z=z, **kw)
     
     
     # --------------------------------------------------------------------
@@ -1800,8 +1857,8 @@ class specClient(object):
 
         # Process optional parameters.
         token = kw['token'] if 'token' in kw else self.auth_token
-        verbose = kw['verbose'] if 'verbose' in kw else False
-        debug = kw['debug'] if 'debug' in kw else False
+        verbose = kw['verbose'] if 'verbose' in kw else self.verbose
+        debug = kw['debug'] if 'debug' in kw else self.debug
         fmt = kw['fmt'] if 'fmt' in kw else 'png'
 
         # Set service call headers.
@@ -1899,8 +1956,8 @@ class specClient(object):
         width = kw['width'] if 'width' in kw else 0
         height = kw['height'] if 'height' in kw else 0
         token = kw['token'] if 'token' in kw else self.auth_token
-        verbose = kw['verbose'] if 'verbose' in kw else False
-        debug = kw['debug'] if 'debug' in kw else False
+        verbose = kw['verbose'] if 'verbose' in kw else self.verbose
+        debug = kw['debug'] if 'debug' in kw else self.debug
         fmt = kw['fmt'] if 'fmt' in kw else 'png'
 
         # Set service call headers.
@@ -1944,20 +2001,33 @@ class specClient(object):
     #
     @staticmethod
     def _plotSpec(wavelength, flux, model=None, sky=None, ivar=None,
-                  rest_frame = True, z=0.0, xlim = None, ylim = None,
+                  rest_frame=True, z=0.0, xlim=None, ylim=None,
                   title=None, xlabel=None, ylabel=None, out=None, **kw):
         """Plot a spectrum.
         
         Inputs:
-            * spec = 
+            * wavelength - Array of spectrum wavelength values to plot.
+            * flux -  Array of spectrum flux values to plot.
+            * model -  Array of model spectrum values to plot (if not None).
+            * sky -  Array of sky spectrum values to plot (if not None).
+            * ivar -  Array of inverse-variance values to plot (if not None).
+
             * rest_frame - Whether or not to plot the spectra in the
-                           rest-frame.  (def: True)
+                           rest-frame. If True, the wavelengths are assumed
+			   to have been already shifted and no 'z' value is
+			   required.  If False, wavelengths are assumed to
+			   be in observed frame and a 'z' value is required 
+			   to overplot absorption/emission lines. (def: True)
             * z - Redshift (def: None)
-            * xlim - Setting the xrange of the plot
-            * ylim - Setting the yrange of the plot
+            * xlim - Setting the xrange of the plot (e.g. '[5000.0,6000.0]')
+            * ylim - Setting the yrange of the plot (e.g. '[0.0,25.0]')
+            * title - Plot title (def: object ID)
+            * xlabel - Plot x-axis label (def: wavelength)
+            * ylabel - Plot y-axis label (def: flux units)
+            * out - Saved output filename.
     
         Optional kwargs:
-            * bands - A comma-delimited string of which bands to plot, a
+            * values - A comma-delimited string of which values to plot, a
                       combination of 'flux,model,sky,ivar'
             * mark_lines - Which lines to mark.  No lines marked if None or
                            an empty string, otherwise one of 'em|abs|all|both'
@@ -1972,17 +2042,20 @@ class specClient(object):
             * ivar_args - Plotting kwargs for the ivar.
             * sky_args - Plotting kwargs for the sky.
         """
-        #from astropy.visualization import astropy_mpl_style
-        #plt.style.use(astropy_mpl_style)
     
         def labelLines (lines, ax, color, yloc):
-            '''This is for selecting only those lines that are visible in
+            '''Select only those lines that are visible in
                the x-range of the plot.
             '''
+            if rest_frame == False and z is None:
+                warnings.warn(
+                         'Redshift required to mark lines in observed frame')
+                return
+
             for ii in range(len(lines)):
                 # If rest_frame=False, shift lines to the observed frame.
                 lam = lines[ii]['lambda']
-                if (rest_frame == False):
+                if rest_frame == False:
                     lam = lam * (1+z)
                 # Plot only lines within the x-range of the plot.
                 if ((lam > xbounds[0]) & (lam < xbounds[1])):
@@ -1997,7 +2070,7 @@ class specClient(object):
         mark_lines = kw['mark_lines'] if 'mark_lines' in kw else 'all'
         em_lines = kw['em_lines'] if 'em_lines' in kw else None
         abs_lines = kw['abs_lines'] if 'abs_lines' in kw else None
-        bands = kw['bands'] if 'bands' in kw else 'flux,model'
+        values = kw['values'] if 'values' in kw else 'flux,model'
     
         if 'spec_args' in kw:
             spec_args = kw['spec_args']
@@ -2027,23 +2100,23 @@ class specClient(object):
             plt.rcParams['axes.facecolor']='#FFFFFF'
     
         ax = fig.add_subplot(111)
-        if 'flux' in bands:
+        if 'flux' in values:
             if ivar is None:
                 ax.plot(wavelength, flux, label='Flux', **spec_args)
             else:
                 ax.plot(wavelength, flux*(ivar > 0), label='Flux', **spec_args)
-        if 'model' in bands and model is not None:
+        if 'model' in values and model is not None:
             if ivar is None:
                 ax.plot(wavelength, model, label='Model', **model_args)
             else:
                 ax.plot(wavelength, model*(ivar > 0), label='Model',
                         **model_args)
-        if 'sky' in bands and sky is not None and ivar is not None:
+        if 'sky' in values and sky is not None and ivar is not None:
             if ivar is None:
                 ax.plot(wavelength, sky, label='Sky', **model_args)
             else:
                 ax.plot(wavelength, sky*(ivar > 0), label='Sky', **sky_args)
-        if 'ivar' in bands and ivar is not None:
+        if 'ivar' in values and ivar is not None:
             ax.plot(wavelength, ivar*(ivar > 0), label='Ivar', **ivar_args)
     
         plt.xlim(xlim)
@@ -2053,8 +2126,12 @@ class specClient(object):
             if rest_frame:
                 plt.xlabel('Rest Wavelength ($\AA$)', color=am_color)
             else:
-                plt.xlabel('Observed Wavelength ($\AA$)    z=%.3g' % z,
-                           color=am_color)
+                if z is not None:
+                    plt.xlabel('Observed Wavelength ($\AA$)    z=%.3g' % z,
+                               color=am_color)
+                else:
+                    plt.xlabel('Observed Wavelength ($\AA$)    z=(unknown)',
+                               color=am_color)
         else:
             plt.xlabel(xlabel, color=am_color)
         if ylabel is None:
@@ -2067,7 +2144,7 @@ class specClient(object):
         if grid: plt.grid(color='gray', linestyle='dashdot', linewidth=0.5)
     
         if title not in [None, '']:
-            ax.set_title(title + '\n', c=am_color)
+            ax.set_title(title, c=am_color)
         
         # Plotting Absorption/Emission lines - only works if either of the
         # lines is set to True
@@ -2169,6 +2246,77 @@ class specClient(object):
         crl.close()
         return b_obj.getvalue()
 
+    def extractIDList(self, id_list, id_col=None):
+        '''Extract a 1-D array or single identifier from an input ID type.
+        '''
+        if isinstance(id_list, str):
+            # Input is a string.  This may be a text string of identifiers,
+            # a filename or a CSV table.
+            if os.path.exists(id_list):
+                # Read list from a local file.
+                with open(id_list, 'r') as fd:
+                    _list = fd.read()
+                ids = _list.split('\n')[:-1]
+            elif id_list.startswith('vos://'):
+                # Read list from virtual storage.
+                ids = storeClient.get(id_list).split('\n')[:-1]
+            elif id_list.find(',') > 0:      # CSV string?
+                pdata = convert (id_list, outfmt='pandas')
+                ids = np.array(pdata[self.context['id_main']])
+            else:
+                ids = np.array([id_list])
+
+            el = ids[0]
+            if isinstance(el, str):
+                cnv_list = []
+                if el[0] == '(':      # Assume a tuple
+                    for el in ids:
+                        cnv_list.append(el[1:-1])
+                else:
+                    for el in ids:
+                        cnv_list.append(int(el))
+                ids = np.array(cnv_list)
+
+        elif isinstance(id_list, int) or \
+             isinstance(id_list, np.int64) or \
+             isinstance(id_list, np.uint64) or\
+             isinstance(id_list, tuple):
+                 # Input is a single integer or tuple type (e.g. a specobjid
+                 # or a (plate,mjd,fiber), simply convert it to a list.
+                 ids = [ id_list ]
+
+        elif isinstance(id_list, list):
+            # Input is already a list type, just return it.
+            ids = id_list
+
+        elif isinstance(id_list, pd.core.frame.DataFrame):
+            try:
+                ids = id_list[self.context['id_main']].tolist()
+            except KeyError as e:
+                ids = None
+
+        elif isinstance(id_list, np.ndarray):
+            # Input is a numpy array.  If it's a 1-D array assume it contains
+            # identifiers and convert to a list, otherwise try to extract the
+            # id column.
+            if id_list.ndim == 1 and id_list.dtype.names is None:
+                ids = id_list.tolist()
+            else:
+                try:
+                    if id_list.dtype.names is not None:
+                        # structured array
+                        ids = id_list[self.context['id_main']].tolist()
+                    else:
+                        # ndarray, use first column
+                        ids = id_list[:,0].tolist()
+                except ValueError as e:
+                    ids = None
+
+        else:
+            ids = np.array(id_list[self.context['id_main']])
+
+        return ids
+
 
 
 # ###################################
@@ -2200,9 +2348,8 @@ def getClient(context='default', profile='default'):
 
 
 
-
 # Get the default client object.
-sp_client = getClient(context='default', profile='default')
+sp_client = client = getClient(context='default', profile='default')
 
 
 # ##########################################
@@ -2215,29 +2362,6 @@ set_profile.__doc__ = sp_client.set_profile.__doc__
 get_profile.__doc__ = sp_client.get_profile.__doc__
 set_context.__doc__ = sp_client.set_context.__doc__
 get_context.__doc__ = sp_client.get_context.__doc__
-
-
-# ####################################################################
-#  Py2/Py3 Compatability Utilities
-# ####################################################################
-
-def spcToString(s):
-    '''spcToString -- Force a return value to be type 'string' for all
-                      Python versions.
-    '''
-    if is_py3:
-        if isinstance(s,bytes):
-            strval = str(s.decode())
-        elif isinstance(s,str):
-            strval = s
-    else:
-        if isinstance(s,bytes) or isinstance(s,unicode):
-            strval = str(s)
-        else:
-            strval = s
-
-    return strval
-
 
 
 

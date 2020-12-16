@@ -15,6 +15,11 @@ class Service(object):
         self.release = release
         pass
 
+    def query(self, id, fields, catalog, cond):
+        '''Return a CSV string of query results on the dataset.
+        '''
+        pass
+
     def dataPath(self, id, fmt=None):
         '''Return the path to the spectrum data file.
         '''
@@ -24,13 +29,6 @@ class Service(object):
         '''Return the path to the spectrum preview plot.
         '''
         pass
-
-    def readFile(self, fname):
-        '''Return the bytes in the named file.
-        '''
-        with open(fname, 'rb') as fd:
-            _bytes = fd.read()
-        return _bytes
 
     def getData(self, fname):
         '''Return the data in the named file as a numpy array.
@@ -43,9 +41,9 @@ class Service(object):
         '''
         pass
 
-    def Test(ctx):
-        import logging
-        print('BASE TEST: context = ' + ctx)
-        logging.info('BASE TEST: context = ' + ctx)
-
-
+    def readFile(self, fname):
+        '''Return the bytes in the named file.
+        '''
+        with open(fname, 'rb') as fd:
+            _bytes = fd.read()
+        return _bytes
