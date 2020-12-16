@@ -1333,7 +1333,7 @@ class specClient(object):
         _res = spcToString(r.content)
 
         # Query result is in CSV, convert to a named table.
-        res = convert(_res,outfmt='table')
+        res = convert(_res,outfmt='pandas')
 
         if out in [None, '']:
             if ofields.count(',') > 0:
