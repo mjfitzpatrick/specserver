@@ -1680,7 +1680,7 @@ class specClient(object):
                 headers = self.getHeaders (None)
                 _svc_url = '%s/query?' % self.svc_url      # base service URL
                 _svc_url += "id=%s&" % str(_id)
-                _svc_url += "fields=%s&" % self.context['z']
+                _svc_url += "fields=%s&" % self.context['redshift']
                 _svc_url += "catalog=%s&" % self.context['catalog']
                 _svc_url += "cond=&"
                 _svc_url += "context=%s&" % context
