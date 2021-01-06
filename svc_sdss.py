@@ -10,7 +10,7 @@ import os
 import glob
 import re
 import time
-import logging
+#import logging
 import numpy as np
 from svc_base import Service
 from astropy.table import Table
@@ -19,7 +19,6 @@ from io import BytesIO
 from io import StringIO
 
 from dl import queryClient as qc
-from dl.helpers.utils import convert
 
 
 # Primary object identifier
@@ -75,9 +74,9 @@ class sdssService(Service):
                       (fields, catalog, sdss_id_main, \
                       toSigned(np.uint64(id), 64))
             print(qstring)
-            res = qc.query (sql=qstring, fmt='table')
+            res = qc.query(sql=qstring, fmt='table')
         else:
-            _where = '' if cond.strip()[:5].lower() in ['order','limit'] else 'WHERE'
+            _where = '' if cond.strip()[:5].lower() in ['order', 'limit'] else 'WHERE'
             if sdss_id_main in fields:
                 qstring = 'SELECT %s FROM %s %s %s' % \
                           (fields, catalog, _where, cond)
@@ -86,12 +85,12 @@ class sdssService(Service):
                           (sdss_id_main, fields, catalog, _where, cond)
 
             # Query the table and force the object ID to be an unsigned int.
-            res = qc.query (sql=qstring, fmt='table')
+            res = qc.query(sql=qstring, fmt='table')
             res[sdss_id_main].dtype = np.uint64
 
         # Return result as CSV
         ret = StringIO()
-        ascii.write (res, ret, format='csv')
+        ascii.write(res, ret, format='csv')
         retval = ret.getvalue()
 
         return retval
@@ -136,17 +135,24 @@ class sdssService(Service):
         # Remove the array brackets from the string and strip any internal
         # (non-quoted) whitespace.  The result is an array of strings we
         # can map to identifiers.
-        if self.debug: print('ID_LIST in: :' + str(id_list) + ':')
+        if self.debug:
+            print('ID_LIST in: :' + str(id_list) + ':')
         id_str = id_list[1:-1].strip()  if id_list[0] == '[' else id_list
         if id_str.find('(') >= 0:
-            id_str = id_str.replace(' ','').replace(',(',' (')
-            id_str = id_str.replace("),",") ").replace(",("," (")
+            id_str = id_str.replace(' ', '')
+            id_str = id_str.replace(',(', ' (')
+            id_str = id_str.replace("),", ") ")
+            id_str = id_str.replace(",(", " (")
         else:
-            id_str = id_str.replace('\n',' ').replace('  ',' ').replace(' ',',')
-            id_str = id_str.replace(' ','').replace(',,',',')
+            id_str = id_str.replace('\n', ' ')
+            id_str = id_str.replace('  ', ' ')
+            id_str = id_str.replace(' ', ',')
+            id_str = id_str.replace(' ', '')
+            id_str = id_str.replace(',,', ',')
         split_char = ' ' if '(' in id_str else ','
         id_str = id_str.split(split_char)
-        if self.debug: print('ID_STR: ' + str(id_str))
+        if self.debug:
+            print('ID_STR: ' + str(id_str))
 
         if all(x.isdigit() for x in id_str):
             # All identifiers are integers.
@@ -158,13 +164,13 @@ class sdssService(Service):
                 if s[0] == '(':
                     v = eval(s)
                     if len(v) == 1:
-                        _ids = self._expandID (v[0],'*','*','*')
+                        _ids = self._expandID(v[0], '*', '*', '*')
                     elif len(v) == 2:
-                        _ids = self._expandID (v[0],v[1],'*','*')
+                        _ids = self._expandID(v[0], v[1], '*', '*')
                     elif len(v) == 3:
-                        _ids = self._expandID (v[0],v[1],v[2],'*')
+                        _ids = self._expandID(v[0], v[1], v[2], '*')
                     else:
-                        _ids = self._expandID (v[0],v[1],v[2],v[3])
+                        _ids = self._expandID(v[0], v[1], v[2], v[3])
 
                     ids = ids + _ids
                 elif s.isdigit():
@@ -191,24 +197,25 @@ class sdssService(Service):
         for r in self.run2d:
             spath = base_path + \
                   '%s/sdss/spectro/redux/%s/spectra/%04i/spec-%04i-%05i-%04i.%s' % \
-                  (self.release,str(r),plate,plate,mjd,fiber,extn)
+                  (self.release, str(r), plate, plate, mjd, fiber, extn)
             if os.path.exists(spath):
-                if self.debug: print('_findFile() time0: ' + \
-                                     str(time.time()-st_time))
+                if self.debug:
+                    print('_findFile() time0: ' + str(time.time()-st_time))
                 return(spath)
 
         # FALLTHRU
         spath = base_path + \
                   '%s/*/spectro/redux/*/spectra/full/%04i/spec-%04i-%05i-%04i.%s' % \
-                  (self.release,plate,plate,mjd,fiber,extn)
+                  (self.release, plate, plate, mjd, fiber, extn)
         files = glob.glob(spath)
         for f in files:
             if os.path.exists(f):
-                if self.debug: print('_findFile() time1: ' + \
-                                     str(time.time()-st_time))
+                if self.debug:
+                    print('_findFile() time1: ' + str(time.time()-st_time))
                 return(f)
 
-        if self.debug: print('_findFile() time2: ' + str(time.time()-st_time))
+        if self.debug:
+            print('_findFile() time2: ' + str(time.time()-st_time))
         return None
 
 
@@ -219,11 +226,11 @@ class sdssService(Service):
         base_path = base_path + \
                         '%s/%s/spectro/redux/' % (self.release, survey)
         path = base_path + ('%s/spectra/%04i/' % (run2d, plate))
-        fname = path + 'spec-%04i-%05i-%04i.%s' %  (plate,mjd,fiber,extn)
+        fname = path + 'spec-%04i-%05i-%04i.%s' %  (plate, mjd, fiber, extn)
         return fname
 
 
-    def _expandID (self, plate, mjd, fiber, run2d):
+    def _expandID(self, plate, mjd, fiber, run2d):
         '''Expand wildcards in a tuple identifier.
         '''
         # PLATE may be an int or list
@@ -261,7 +268,7 @@ class sdssService(Service):
             split_char = '-' if fiber.find('-') > 0 else ':'
             st = int(fiber.split(split_char)[0])
             en = int(fiber.split(split_char)[1])
-            wf = 'fiberid between %d and %d' % (st,en)
+            wf = 'fiberid between %d and %d' % (st, en)
         elif fiber.find(',') > 0:
             flist = list(map(int, fiber.split(',')))
             wf = 'fiberid in %s' % str(flist).replace('[','(').replace(']',')')
@@ -273,20 +280,20 @@ class sdssService(Service):
         # RUN2D may be a str or list
         if run2d is None or run2d == '*':
             wr = None
-        elif isinstance(run2d,list):
-            wr = 'run2d in %s' % str(run2d).replace('[','(').replace(']',')')
+        elif isinstance(run2d, list):
+            wr = 'run2d in %s' % str(run2d).replace('[', '(').replace(']', ')')
         elif run2d.find(',') > 0:
             rlist = list(map(str, run2d.split(',')))
-            wa = str(rlist).replace('[','(').replace(']',')')
+            wa = str(rlist).replace('[', '(').replace(']', ')')
             wr = "run2d in %s" % wa
         else:
             wr = "run2d = '%s'" % run2d
 
-        if all(w is None for w in [wp,wm,wf,wr]):
+        if all(w is None for w in [wp, wm, wf, wr]):
             raise Exception('At least one of plate or mjd must be specified')
         else:
             w = '' if wp is None else wp
-            if wm is not None: 
+            if wm is not None:
                 w = w  + ('' if w == '' else ' AND ') + wm
             if wf is not None:
                 w = w  + ('' if w == '' else ' AND ') + wf
@@ -295,18 +302,19 @@ class sdssService(Service):
 
         # DR16 will have the needed information, we cannot count on earlier
         # releases having an available 'specobj' table.
-        query = '''SELECT plate,mjd,fiberid,run2d,survey 
+        query = '''SELECT plate,mjd,fiberid,run2d,survey
                    FROM sdss_dr16.specobj WHERE %s''' % w
 
         res = qc.query(sql=query, profile=self.query_profile)
         rows = res.split('\n')[1:-1]
         ids = []
         for row in rows:
-            p,m,f,r,s = row.split(',')
+            p, m, f, r, s = row.split(',')
             s = 'sdss' if s.startswith('segue') else s.lower()
-            ids.append(tuple([int(p),int(m),int(f),r,s]))
+            ids.append(tuple([int(p), int(m), int(f), r, s]))
 
-        if self.debug: print ('return ids = :%s:' % ids)
+        if self.debug:
+            print('return ids = :%s:' % ids)
         return(ids)
 
 
@@ -315,19 +323,19 @@ class sdssService(Service):
         '''
         st_time = time.time()
         survey = 'sdss'			# default survey name
-        if isinstance(id,str) or isinstance(id,np.unicode):
+        if isinstance(id, str) or isinstance(id, np.unicode):
             if id[0] == '(':
                 id = id.astype(np.uint64)
             else:
                 id = int(id)
-        if isinstance(id,int) or isinstance(id,np.uint64):
+        if isinstance(id, int) or isinstance(id, np.uint64):
             # The ID is a 'specobjid' object
-            u = unpack_specobjid(np.array([id],dtype=np.uint64))
+            u = unpack_specobjid(np.array([id], dtype=np.uint64))
             plate = u.plate[0]
             mjd = u.mjd[0]
             fiber = u.fiber[0]
             run2d = u.run2d[0]
-        elif isinstance(id,tuple):
+        elif isinstance(id, tuple):
             # The ID is a '(plate,mjd,fiber[,run2d])' tuple object
             if len(id) >= 3:
                  plate, mjd, fiber = id[0], id[1], id[2]
@@ -335,7 +343,8 @@ class sdssService(Service):
                  survey = id[4] if len(id) == 5 else 'sdss'
                  if len(id) == 5:
                      survey = id[4].lower()
-                     if survey.startswith('segue'): survey = 'sdss' 
+                     if survey.startswith('segue'):
+                         survey = 'sdss'
         else:
             raise Exception('Unknown identifier: ' + str(id))
 
@@ -344,25 +353,25 @@ class sdssService(Service):
             extn = extn[1:]
 
         if run2d == '':
-            # If we don't have an explicit RUN2D value, search for a 
+            # If we don't have an explicit RUN2D value, search for a
             # plate/mjd/fiber combo in the given context.
-            fname = self._findFile(plate,mjd,fiber,extn)
+            fname = self._findFile(plate, mjd, fiber, extn)
         else:
             # Otherwise construct the path to the file.
             fname = self._buildPath(plate, mjd, fiber, run2d, survey, extn)
             if not os.path.exists(fname):
                 # Not found in the current context, look around....
-                fname = self._findFile(plate,mjd,fiber,extn)
+                fname = self._findFile(plate, mjd, fiber, extn)
 
         # Lastly, try to find a FITS file before giving up.
         if fname is None:
-            fname = self._findFile(plate,mjd,fiber,'fits')
+            fname = self._findFile(plate, mjd, fiber, 'fits')
             if fname is None:
                 raise Exception('File not found: ')
 
-        if self.debug: print('_idToPath() time: ' + str(time.time()-st_time))
+        if self.debug:
+            print('_idToPath() time: ' + str(time.time()-st_time))
         return fname
-
 
 
 #############################################
@@ -380,7 +389,7 @@ def toSigned(number, bitLength):
 
 
 def pack_specobjid(plate, mjd, fiber, run2d):
-    """Convert SDSS spectrum identifiers into CAS-style specObjID.
+    '''Convert SDSS spectrum identifiers into CAS-style specObjID.
 
     Bits are assigned in specObjID thus:
 
@@ -426,14 +435,14 @@ def pack_specobjid(plate, mjd, fiber, run2d):
 
     Credit
     ------
-    * Based on routine from `pydl.pydlutils.sdss`: 
+    * Based on routine from `pydl.pydlutils.sdss`:
         https://github.com/weaverba137/pydl
 
     Examples
     --------
     >>> print(pack_specobjid(4055,408,55359,'v5_7_0'))
     [4565636362342690816]
-    """
+    '''
 
     if isinstance(plate, int):
         plate = np.array([plate], dtype=np.uint64)
@@ -458,9 +467,9 @@ def pack_specobjid(plate, mjd, fiber, run2d):
     elif isinstance(run2d, int):
         run2d = np.array([run2d], dtype=np.uint64)
     else:
-        cnv = {'103' : 103, '104' : 104, '26' : 26,
-               'v5_10_0' : 1000, 'v5_13_0' : 1300
-              }
+        cnv = {'103': 103, '104': 104, '26': 26,
+               'v5_10_0': 1000, 'v5_13_0': 1300
+               }
         R = np.array(run2d)
         for t in list(cnv):
             R = np.where(R == t, cnv[t], R)
@@ -522,9 +531,9 @@ def unpack_specobjid(specObjID):
                      ('mjd', '<i4'), ('run2d', '<U8')])
     """
 
-    if isinstance (specObjID, np.uint64) or isinstance (specObjID, int):
-        tempobjid = np.array([ specObjID ], dtype=np.uint64)
-    elif specObjID.dtype.type in [ np.string_, np.unicode_ ]:
+    if isinstance(specObjID, np.uint64) or isinstance(specObjID, int):
+        tempobjid = np.array([specObjID], dtype=np.uint64)
+    elif specObjID.dtype.type in [np.string_, np.unicode_]:
         tempobjid = specObjID.astype(np.uint64)
     elif specObjID.dtype.type is np.uint64:
         tempobjid = specObjID.copy()
@@ -549,10 +558,9 @@ def unpack_specobjid(specObjID):
             ['v{0:d}_{1:d}_{2:d}'.format(n, m, p) for n, m, p in zip(N, M, P)])
 
         # Fix the integer version conversion.
-        R = np.where (R == 'v5_1_3', '103', R)
-        R = np.where (R == 'v5_1_4', '104', R)
-        R = np.where (R == 'v5_0_26', '26', R)
+        R = np.where(R == 'v5_1_3', '103', R)
+        R = np.where(R == 'v5_1_4', '104', R)
+        R = np.where(R == 'v5_0_26', '26', R)
     unpack.run2d = R
 
     return unpack
-
