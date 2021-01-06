@@ -6,7 +6,6 @@ __authors__ = 'Mike Fitzpatrick <fitz@noao.edu>'
 __version__ = 'v1.0.0'
 
 
-
 # Base service class.
 class Service(object):
     '''Base service class.
