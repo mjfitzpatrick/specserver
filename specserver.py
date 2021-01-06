@@ -7,11 +7,13 @@ __version__ = 'v1.0.0'
 
 
 # Uncomment for DataDog stats
-#try:
-#    from ddtrace import patch_all
-#    patch_all()
-#except:
-#    pass
+'''
+try:
+    from ddtrace import patch_all
+    patch_all()
+except:
+    pass
+'''
 
 
 #  Usage:
@@ -38,19 +40,18 @@ __version__ = 'v1.0.0'
 #       /debug      GET     Toggle the service debug flag
 
 
-
 import os
 import sys
-import csv
 import json
-import re
 import argparse
 import asyncio
+import socket
 
 from aiohttp import web
 
 # Import the Async implementation
 from svr_async import app as svr_async
+from svr_sync import app as svr_async
 
 config = {}			# Global configuration data
 
@@ -64,13 +65,11 @@ DEF_CONFIG = '/opt/services/specserver/spec.conf'
 EXT_CONFIG = '/opt/services/lib/spec.conf'
 
 
-
 #  PARSECONFIG -- Parse the configuration file.
 #
 def parseConfig(file):
     '''Parse the configuration file.
     '''
-    import socket
     global config
 
     print('Opening config file: ' + file)
@@ -88,7 +87,7 @@ def parseConfig(file):
             cfg = config['profiles'][def_profile]
             config['profiles']['default'].update(cfg)
     else:
-        raise Exception ("No such config file: " + file)
+        raise Exception("No such config file: " + file)
 
 
 #  CREATE_PARSER -- Commandline argument parser.
@@ -122,7 +121,7 @@ def main():
     elif os.path.exists(DEF_CONFIG):
         parseConfig(DEF_CONFIG)
     else:
-        raise Exception ('No config file found.')
+        raise Exception('No config file found.')
 
     if parsed.sync:
         print("Starting Flask server")
@@ -152,5 +151,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
