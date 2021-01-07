@@ -51,7 +51,6 @@ from aiohttp import web
 
 # Import the Async implementation
 from svr_async import app as svr_async
-from svr_sync import app as svr_async
 
 config = {}			# Global configuration data
 
