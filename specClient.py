@@ -110,7 +110,7 @@ is_py3 = sys.version_info.major == 3
 
 # The URL of the service to access.  This may be changed by passing a new
 # URL into the set_svc_url() method before beginning.
-DEF_SERVICE_ROOT = "https://datalab.noao.edu/spec"
+DEF_SERVICE_ROOT = "https://datalab.noao.edu"
 
 # Allow the service URL for dev/test systems to override the default.
 THIS_HOST = socket.gethostname()
