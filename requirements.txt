@@ -1,0 +1,16 @@
+astropy==4.0.1.post1
+aiohttp==3.7.2
+requests==2.24.0
+Flask==1.1.2
+h5py==2.10.0
+Flask_Cors==3.0.9
+redis==2.10.6
+numpy==1.18.5
+pandas==1.0.5
+specutils==1.1
+matplotlib==3.2.2
+psycopg2==2.8.6
+Pillow==8.1.1
+pycurl==7.43.0.6
+pycurl_requests==0.1.2
+requests_toolbelt==0.9.1
