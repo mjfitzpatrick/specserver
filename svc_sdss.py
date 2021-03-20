@@ -149,7 +149,14 @@ class sdssService(Service):
             id_str = id_str.replace(' ', ',')
             id_str = id_str.replace(' ', '')
             id_str = id_str.replace(',,', ',')
-        split_char = ' ' if '(' in id_str else ','
+
+        if "'" in id_str:
+            split_char = ','
+            id_str = id_str.replace("'", '')
+        elif "(" in id_str:
+            split_char = ' '
+        else:
+            split_char = ','
         id_str = id_str.split(split_char)
         if self.debug:
             print('ID_STR: ' + str(id_str))
