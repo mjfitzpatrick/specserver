@@ -706,6 +706,6 @@ def _getSvc(context):
 logging.basicConfig(level=logging.DEBUG)
 
 # Define the application.
-app = web.Application()
+app = web.Application(client_max_size=4096**2)
 app.add_routes(routes)
 
