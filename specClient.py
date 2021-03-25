@@ -1327,7 +1327,7 @@ class specClient(object):
         if context in [None, '']:
             context = self.svc_context
         if profile in [None, '']:
-            rofile = self.svc_profile
+            profile = self.svc_profile
 
         # Process optional keyword arguments.
         ofields = kw['fields'] if 'fields' in kw else self.context['id_main']
