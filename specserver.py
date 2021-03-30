@@ -46,11 +46,13 @@ import json
 import argparse
 import asyncio
 import socket
+import logging
 
 from aiohttp import web
 
 # Import the Async implementation
-from svr_async import app as svr_async
+from svr_async import app as svr_async_app
+from svr_async import routes as async_routes
 
 config = {}			# Global configuration data
 
@@ -131,7 +133,7 @@ def main():
         )
     else:
         async def start_async_server():
-            runner = web.AppRunner(svr_async)
+            runner = web.AppRunner(svr_async_app)
             await runner.setup()
             site = web.TCPSite(
                 runner, parsed.host, parsed.port)
@@ -146,6 +148,12 @@ def main():
             loop.run_forever()
         except KeyboardInterrupt:
             loop.run_until_complete(runner.cleanup())
+
+async def specserverFactory():
+    logging.basicConfig(level=logging.INFO)
+    app = web.Application(client_max_size=4096**2)
+    app.add_routes(async_routes)
+    return app
 
 
 if __name__ == '__main__':
