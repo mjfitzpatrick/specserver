@@ -457,14 +457,14 @@ async def gridplot(request):
     if debug:
         logging.info ('gridPlot Params: ' + str(dict(params)))
 
-    ids = map(int, id_list[1:-1].split(','))
+    ids = map(np.uint64, id_list[1:-1].split(','))
     svc = _getSvc(context)
     imgs = []
     for p in ids:
         fname = svc.previewPath(p)
         imgs.append(Image.open(fname))
 
-    ret_img = pil_grid (imgs, ncols)
+    ret_img = pil_grid (imgs, max_horiz=ncols)
 
     retval = BytesIO()
     ret_img.save(retval, format='PNG')

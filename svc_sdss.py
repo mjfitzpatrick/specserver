@@ -150,11 +150,11 @@ class sdssService(Service):
             id_str = id_str.replace(' ', '')
             id_str = id_str.replace(',,', ',')
 
-        if "'" in id_str:
+        if "(" in id_str:
+            split_char = ' '
+        elif "'" in id_str:
             split_char = ','
             id_str = id_str.replace("'", '')
-        elif "(" in id_str:
-            split_char = ' '
         else:
             split_char = ','
         id_str = id_str.split(split_char)
@@ -206,7 +206,7 @@ class sdssService(Service):
                   '%s/sdss/spectro/redux/%s/spectra/%04i/spec-%04i-%05i-%04i.%s' % \
                   (self.release, str(r), plate, plate, mjd, fiber, extn)
             if os.path.exists(spath):
-                if self.debug:
+                if self.debug and self.verbose:
                     print('_findFile() time0: ' + str(time.time()-st_time))
                 return(spath)
 
@@ -217,11 +217,11 @@ class sdssService(Service):
         files = glob.glob(spath)
         for f in files:
             if os.path.exists(f):
-                if self.debug:
+                if self.debug and self.verbose:
                     print('_findFile() time1: ' + str(time.time()-st_time))
                 return(f)
 
-        if self.debug:
+        if self.debug and self.verbose:
             print('_findFile() time2: ' + str(time.time()-st_time))
         return None
 
@@ -376,7 +376,7 @@ class sdssService(Service):
             if fname is None:
                 raise Exception('File not found: ')
 
-        if self.debug:
+        if self.debug and self.verbose:
             print('_idToPath() time: ' + str(time.time()-st_time))
         return fname
 
