@@ -10,7 +10,7 @@ pandas==1.0.5
 specutils==1.1
 matplotlib==3.2.2
 psycopg2==2.8.6
-Pillow==8.1.1
+Pillow>=8.3.2
 pycurl==7.43.0.6
 pycurl_requests==0.1.2
 requests_toolbelt==0.9.1
